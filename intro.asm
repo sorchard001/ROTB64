@@ -55,6 +55,8 @@ intro
 	anda #127		;
 	cmpa #127		;
 	bne 1b			; key or button pressed
+
+	jsr init_cyd_waves
 	
 intro_loop
 

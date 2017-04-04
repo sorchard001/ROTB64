@@ -1,3 +1,7 @@
+;**********************************************************
+; ROTB - Return of the Beast
+; Copyright 2014-2017 S. Orchard
+;**********************************************************
 
 	align 256
 
@@ -5,16 +9,6 @@ include_wave macro
 \1	equ *+128
 	includebin "waves/&1.bin"
 	endm
-
-	;includebin "../samples/&1.bin"
-	;includebin "&1.bin"
-
-	
-	include_wave "silent"
-	
-	include_wave "sqr2"
-	include_wave "sqr1"
-	include_wave "sqr0"
 
 	include_wave "saw2"
 	include_wave "saw1"
@@ -28,9 +22,57 @@ include_wave macro
 	include_wave "nzz1"
 	include_wave "nzz0"
 
-	
+	; cyd needs to be page aligned
 	include "cyd.s"
 
+;------------------------------------------------
+
+	section "CYD_WAVES"
+	
+	org CFG_CYD_WAVES_ADDR
+
+silent	equ *+128
+		rmb 256
+
+sqr2	equ *+128
+		rmb 256
+sqr1	equ *+128
+		rmb 256
+sqr0	equ *+128
+		rmb 256
+
+;------------------------------------------------
+
+	section "CODE"
+
+init_cyd_waves
+	ldu #cyd_wave_params
+1	ldx ,u++
+	beq 2f
+	ldd ,u++
+	bsr block_fill
+	bra 1b
+	
+2	rts
+
+
+block_fill
+1	sta ,x+
+	decb
+	bne 1b
+	rts
+
+
+cyd_wave_params
+	fdb silent-128, $2a00
+	fdb sqr2-128, $5480
+	fdb sqr2, $0180
+	fdb sqr1-128, $4680
+	fdb sqr1, $0e80
+	fdb sqr0-128, $3880
+	fdb sqr0, $1c80
+	fdb 0
+	
 ;------------------------------------------------
 
 	include "tune_macros.asm"

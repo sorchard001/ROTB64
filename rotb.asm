@@ -27,7 +27,7 @@ CFG_FF01_JOY_Y		equ $3c
 CFG_FF23_DIS_SND	equ $34
 CFG_FF23_ENA_SND	equ $3c
 
-; start of code
+; start of code (must be page aligned)
 CFG_CODE_ADDR	equ $1c00
 
 ; start of VDG frame buffer
@@ -47,10 +47,14 @@ CFG_SBUFF		equ $8000
 CFG_SPRITE_DATA		equ CFG_SBUFF + (CFG_TILEROWS*256*4)
 
 ; address of code that needs be copied to RAM
+; (experimental: just copies a small amount of code)
 CFG_RAMCODE_PUT		equ __end_code
 
 ; destination address of code copied to RAM
 CFG_RAMCODE_ORG		equ __end_data
+
+; address to construct waves for cyd
+CFG_CYD_WAVES_ADDR	equ CFG_SBUFF
 
 
 ; macro to set video mode
@@ -192,13 +196,15 @@ msg_restart		fcc "SPACE OR FIRE TO PLAY AGAIN",0
 	org CFG_CODE_ADDR
 	setdp DPVARS >> 8
 
-
+	; rotb_tune must be page aligned
 	include "rotb_tune.asm"
 
+
+	; don't make any assumptions about dp on entry
 	
 code_entry
 	;orcc #$50
-	clr $ff48		; disable disk motor & nmi
+	clr >$ff48		; disable disk motor & nmi
 	
 	lds #CFG_STACK
 
@@ -215,7 +221,7 @@ code_entry
 
 	; switch to map 1
 	if CFG_64K
-	sta $ffdf
+	sta >$ffdf
 	endif
 	
 	ldu #CFG_RAMCODE_PUT
@@ -1012,5 +1018,9 @@ __end_ramcode_put	equ CFG_RAMCODE_PUT + (__end_ramcode_org - CFG_RAMCODE_ORG)
 
 	section "SPRITE_DATA"
 __end_sprite_data
+
+	section "CYD_WAVES"
+__end_cyd_waves
+
 
 	end code_entry
