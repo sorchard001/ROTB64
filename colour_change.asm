@@ -38,8 +38,8 @@ next_colour_set	rmb 2	; pointer to palette
 	
 current_pal_tiles 	rmb 4
 
-	
-	section "RUN_ONCE"
+
+	section "CODE"
 
 ; store GREEN,YELLOW,BLUE,RED in palette
 colour_change_init
@@ -51,8 +51,6 @@ colour_change_init
 	deca
 	bpl 1b
 	rts
-
-	section "CODE"
 
 ; create 256 byte lookup table
 ; U points to current palette
@@ -124,12 +122,14 @@ colour_change_x
 	bsr _colour_change_sub
 	ldx #TD_SBUFF
 	ldd #TD_SBEND
+	; fall through to _colour_change_sub
 	
 _colour_change_sub
 	std 2f+1
-1	lda ,x
+1	ldd ,x
 	lda a,y
-	sta ,x+
+	ldb b,y
+	std ,x++	; assumes we're writing an even number of bytes
 2	cmpx #0
 	blo 1b
 	rts

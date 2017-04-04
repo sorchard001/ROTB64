@@ -9,7 +9,8 @@ control_set	rmb 2
 jbuttons	rmb 1
 keytable	rmb 8
 
-	section "RUN_ONCE"
+
+	section "CODE"
 
 controls_init
 	ldd #control_keys		; default controls`
@@ -21,8 +22,6 @@ controls_init
 	bne 1b					;
 	rts
 	
-
-	section "CODE"
 
 scan_keys
 	ldu #$ff00

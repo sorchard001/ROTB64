@@ -51,7 +51,7 @@ TD_SBEND	equ TD_SBUFF + TD_SBSIZE*4
 
 ;**********************************************************
 
-	section "RUN_ONCE"
+	section "CODE"
 
 td_init
 	clra
@@ -78,10 +78,8 @@ td_init
 	rts
 
 	
-	section "CODE"
-
 	include "td_updown.asm"
 	include "td_leftright.asm"
 	include "td_copybuf.asm"
-	;include "td_copybuf_adv.asm"
+
 

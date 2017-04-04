@@ -25,7 +25,8 @@ soundbuf_end	equ *
 
 	
 
-	section "RUN_ONCE"
+	section "CODE"
+
 
 ; called once on program initialisation
 snd_init
@@ -39,8 +40,6 @@ snd_init
 	jmp snd_clear_buf
 
 	
-	section "CODE"
-
 ; start a sound effect if it has priority	
 snd_start_fx
 	cmpx snd_fx

@@ -46,12 +46,8 @@ CFG_SBUFF		equ $8000
 ; address of unpacked sprite data
 CFG_SPRITE_DATA		equ CFG_SBUFF + (CFG_TILEROWS*256*4)
 
-; address of run-once throw away code
-;CFG_RUN_ONCE_ADDR	equ CFG_SBUFF
-CFG_RUN_ONCE_ADDR	equ $5400
-
 ; address of code that needs be copied to RAM
-CFG_RAMCODE_PUT		equ __end_run_once
+CFG_RAMCODE_PUT		equ __end_code
 
 ; destination address of code copied to RAM
 CFG_RAMCODE_ORG		equ __end_data
@@ -192,9 +188,11 @@ msg_restart		fcc "SPACE@OR@FIRE@TO@PLAY@AGAIN",0
 	
 ;**********************************************************
 
-	section "RUN_ONCE"
-	
-	org CFG_RUN_ONCE_ADDR
+	section "CODE"
+
+	org CFG_CODE_ADDR
+	setdp DPVARS >> 8
+
 
 	include "rotb_tune.asm"
 
@@ -290,9 +288,6 @@ code_entry
 	
 	section "CODE"
 
-	setdp DPVARS >> 8
-
-	org CFG_CODE_ADDR
 
 	include "grfx/tiledata.asm"
 	include "grfx/sp_test.asm"
@@ -994,12 +989,6 @@ pf_dither_table
 	fcb $cf, 0,$fc,64,$fc, 0,$cf,64
 	fcb $3f,32,$f3,96,$f3,32,$3f,96
 
-; 1st byte is row offset, 2nd byte is mask
-	;fcb 0,$3f,2,$f3,0,$f3,2,$3f
-	;fcb 1,$cf,3,$fc,1,$fc,3,$cf
-	;fcb 0,$cf,2,$fc,0,$fc,2,$cf
-	;fcb 1,$3f,3,$f3,1,$f3,3,$3f
-
 ; ordered dither matrix
 ; 1  9  3 11
 ;13  5 15  7
@@ -1010,9 +999,6 @@ pf_dither_table
 	
 	section "CODE"
 __end_code
-
-	section "RUN_ONCE"
-__end_run_once
 
 	section "DPVARS"
 __end_dpvars

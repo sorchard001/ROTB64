@@ -1,6 +1,9 @@
+;**********************************************************
+; ROTB - Return of the Beast
+; Copyright 2014-2017 S. Orchard
+;**********************************************************
 
-
-	section "RUN_ONCE"
+	section "CODE"
 
 intr_fg		equ temp1
 intr_bg		equ temp2
