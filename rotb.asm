@@ -158,12 +158,11 @@ rndtable_end	equ *
 	org CFG_RAMCODE_ORG
 	put CFG_RAMCODE_PUT
 
-	include "grfx/charset.asm"
 
 draw_strz
 2	ldb ,y+
 	beq 1f
-	subb #64
+	subb #32
 	lda #5
 	mul
 	bsr draw_char
@@ -171,8 +170,8 @@ draw_strz
 	bra 2b
 	
 draw_char
-	ldx #charset
-	abx
+	ldx #allchars
+	leax d,x
 	ldd ,x
 	sta -64,u
 	stb -32,u
@@ -183,8 +182,8 @@ draw_char
 	sta 64,u
 1	rts
 
-msg_game_over	fcc "GAME@OVER@PUNY@HUMAN",0
-msg_restart		fcc "SPACE@OR@FIRE@TO@PLAY@AGAIN",0
+msg_game_over	fcc "GAME OVER PUNY HUMAN",0
+msg_restart		fcc "SPACE OR FIRE TO PLAY AGAIN",0
 	
 ;**********************************************************
 
