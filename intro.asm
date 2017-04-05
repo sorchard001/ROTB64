@@ -236,9 +236,9 @@ msg_title
 
 msg_intro1
 	MAC_MSG_POS 1,14
-	fcc -1,$55,"SOMEWHERE IN THE MULTIVERSE",0
+	fcc -1,$55,"WAY DOWN DEEP",0
 	MAC_MSG_POS 1,15
-	fcc "ABOUT TEA TIME...",0
+	fcc "IN THE MIDDLE OF THE CONGO...",0
 	fdb 0
 
 

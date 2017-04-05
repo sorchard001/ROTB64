@@ -18,10 +18,6 @@ include_wave macro
 	include_wave "tri1"
 	include_wave "tri0"
 
-	include_wave "nzz2"
-	include_wave "nzz1"
-	include_wave "nzz0"
-
 	; cyd needs to be page aligned
 	include "cyd.s"
 
@@ -40,20 +36,35 @@ reserve_wave macro
 	reserve_wave "sqr2"
 	reserve_wave "sqr1"
 	reserve_wave "sqr0"
+;	reserve_wave "saw2"
+;	reserve_wave "saw1"
+;	reserve_wave "saw0"
+	reserve_wave "nzz2"
+	reserve_wave "nzz1"
+	reserve_wave "nzz0"
 
 ;------------------------------------------------
 
 	section "CODE"
 
+; generate waveforms for CyD player
 init_cyd_waves
 	ldu #cyd_wave_params
+
+	; silent and square waves generated with block fill
 	ldx #silent-128
 1	ldd ,u++
 	beq 2f
 	bsr block_fill
 	bra 1b
-
-2	rts
+2
+	; noise waves generated with prng
+1	ldd ,u++
+	beq 3f
+	bsr rnd_fill
+	bra 1b
+3
+	rts
 
 
 block_fill
@@ -63,12 +74,50 @@ block_fill
 	rts
 
 
+rnd_fill
+	sta 2f+1	; amplitude
+	stb 3f+1	; offset
+	ldy #256
+1
+wrndx lda #0		; xabc pseudo-random number generator
+	inca			; converted from c source found on www.eternityforest.com
+	sta wrndx+1
+wrnda eora #0
+wrndc eora #0
+	sta wrnda+1
+wrndb adda #0
+	sta wrndb+1
+	lsra
+	adda wrndc+1
+	eora wrnda+1
+	sta wrndc+1
+
+2	ldb #0
+	mul
+3	adda #0
+	sta ,x+
+	leay -1,y
+	bne 1b
+	rts
+
+
 cyd_wave_params
 	fdb $2a00			; silent
 	fdb $5480, $0180	; sqr2
 	fdb $4680, $0e80	; sqr1
 	fdb $3880, $1c80	; sqr0
+
+	;fdb $5440, $01c0	; pls2
+	;fdb $4640, $0ec0	; pls1
+	;fdb $3840, $1cc0	; pls0
+
 	fdb 0
+
+	fcb ($54-$01), $01	; nzz2
+	fcb ($46-$0e), $0e	; nzz1
+	fcb ($38-$1e), $1e	; nzz0
+	fdb 0
+
 
 ; silent & square waves defined as 128-byte runs of single value
 ;	fcb $2a, $2a		; silent
