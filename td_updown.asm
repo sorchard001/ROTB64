@@ -345,7 +345,7 @@ td_draw_ud_even
 	std ,x++
 	cmpx #TD_SBUFF+TD_SBSIZE
 	blo 1f
-	leax -TD_SBSIZE,x
+	ldx #TD_SBUFF ;leax -TD_SBSIZE,x
 1	
 	lda 5b+2
 	inca
@@ -387,7 +387,7 @@ td_draw_ud_odd
 	stb ,x+
 	cmpx #TD_SBUFF+TD_SBSIZE
 	blo 1f
-	leax -TD_SBSIZE,x
+	ldx #TD_SBUFF ;leax -TD_SBSIZE,x
 1	
 	puls a
 	inca
@@ -409,7 +409,7 @@ td_draw_ud_odd
 	std ,x++
 	cmpx #TD_SBUFF+TD_SBSIZE
 	blo 1f
-	leax -TD_SBSIZE,x
+	ldx #TD_SBUFF ;leax -TD_SBSIZE,x
 1	
 	lda 5b+2
 	inca
@@ -457,9 +457,9 @@ td_draw_ud_shifted
 	blo 3f						; not at boundary: ok to load word
 	bne 4f						; after boundary: wrap then load word
 	lda ,x+						; else boundary in middle of word
-	ldb -TD_SBSIZE,x
+	ldb TD_SBUFF ;ldb -TD_SBSIZE,x
 	bra 1f
-4	leax -TD_SBSIZE,x
+4	ldx #TD_SBUFF ;leax -TD_SBSIZE,x
 3	ldd ,x+
 
 1	lslb
@@ -493,7 +493,7 @@ td_draw_ud_shifted
 1	
 	cmpx #TD_SBUFF+TD_SBSIZE
 	blo 2f
-	leax -TD_SBSIZE,x
+	ldx #TD_SBUFF ;leax -TD_SBSIZE,x
 2	
 	lda ,x
 td_ud_shifted_byte33

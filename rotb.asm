@@ -51,7 +51,8 @@ CFG_SPRITE_DATA		equ CFG_SBUFF + (CFG_TILEROWS*256*4)
 CFG_RAMCODE_PUT		equ __end_code
 
 ; destination address of code copied to RAM
-CFG_RAMCODE_ORG		equ __end_data
+CFG_RAMCODE_ORG		equ CFG_RAMCODE_PUT
+;CFG_RAMCODE_ORG		equ __end_data
 
 ; address to construct waves for cyd
 CFG_CYD_WAVES_ADDR	equ CFG_SBUFF
@@ -199,12 +200,15 @@ msg_restart		fcc "SPACE OR FIRE TO PLAY AGAIN",0
 	; rotb_tune must be page aligned
 	include "rotb_tune.asm"
 
-
-	; don't make any assumptions about dp on entry
 	
 code_entry
 	;orcc #$50
-	clr >$ff48		; disable disk motor & nmi
+
+	lda #DPVARS >> 8
+	tfr a,dp
+	setdp DPVARS >> 8
+
+	clr $ff48		; disable disk motor & nmi
 	
 	lds #CFG_STACK
 
@@ -220,24 +224,24 @@ code_entry
 	sta 3,x
 
 	; switch to map 1
-	if CFG_64K
-	sta >$ffdf
-	endif
-	
+  if CFG_64K
+	sta $ffdf
+  endif
+
+
+  ; relocate code if required
+  if (CFG_RAMCODE_PUT != CFG_RAMCODE_ORG)
 	ldu #CFG_RAMCODE_PUT
 	ldx #CFG_RAMCODE_ORG
 1	lda ,u+
 	sta ,x+
 	cmpx #__end_ramcode_org
 	blo 1b
+  endif
 	
-	lda #DPVARS >> 8
-	tfr a,dp
-	setdp DPVARS >> 8
-
-	if DBG_RASTER
+  if DBG_RASTER
 	clr show_raster
-	endif
+  endif
 	
 	ldx #rndtable			; prefill random number table
 	stx rnd_ptr
