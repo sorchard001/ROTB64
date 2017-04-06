@@ -10,13 +10,13 @@ include_wave macro
 	includebin "waves/&1.bin"
 	endm
 
-	include_wave "saw2"
-	include_wave "saw1"
-	include_wave "saw0"
+;	include_wave "saw2"
+;	include_wave "saw1"
+;	include_wave "saw0"
 
-	include_wave "tri2"
-	include_wave "tri1"
-	include_wave "tri0"
+;	include_wave "tri2"
+;	include_wave "tri1"
+;	include_wave "tri0"
 
 	; cyd needs to be page aligned
 	include "cyd.s"
@@ -36,12 +36,15 @@ reserve_wave macro
 	reserve_wave "sqr2"
 	reserve_wave "sqr1"
 	reserve_wave "sqr0"
-;	reserve_wave "saw2"
-;	reserve_wave "saw1"
-;	reserve_wave "saw0"
 	reserve_wave "nzz2"
 	reserve_wave "nzz1"
 	reserve_wave "nzz0"
+	reserve_wave "saw2"
+	reserve_wave "saw1"
+	reserve_wave "saw0"
+	reserve_wave "tri2"
+	reserve_wave "tri1"
+	reserve_wave "tri0"
 
 ;------------------------------------------------
 
@@ -64,6 +67,11 @@ init_cyd_waves
 	bsr rnd_fill
 	bra 1b
 3
+	; saw & triangle waves generated with ramp fill
+1	bsr ramp_fill
+	lda ,u
+	bne 1b
+
 	rts
 
 
@@ -100,6 +108,38 @@ wrndb adda #0
 	bne 1b
 	rts
 
+	
+; fill with increasing or decreasing value (1st or 8th octant only)
+ramp_fill
+	ldd 1,u		; a=dx, b=y0
+	inca
+	sta temp0	; loop count = dx+1
+	deca
+	lsra
+	nega		; initial error term
+	
+1	stb ,x+
+	adda ,u		; dy
+	bcc 2f
+	suba 1,u	; dx
+	addb 3,u	; +/-1
+2	dec temp0
+	bne 1b
+
+	leau 4,u	; point to next param set
+
+	rts
+
+
+wave2_min	equ $01
+wave2_max	equ $54
+wave1_min	equ $0e
+wave1_max	equ $46
+wave0_min	equ $1e
+wave0_max	equ $38
+
+params
+	
 
 cyd_wave_params
 	fdb $2a00			; silent
@@ -118,13 +158,20 @@ cyd_wave_params
 	fcb ($38-$1e), $1e	; nzz0
 	fdb 0
 
+	; ramp table |dy|, dx, y0, inc/dec
 
-; silent & square waves defined as 128-byte runs of single value
-;	fcb $2a, $2a		; silent
-;	fcb $54, $01		; sqr2
-;	fcb $46, $0e		; sqr1
-;	fcb $38, $1e		; sqr0
-;	fcb 0
+	fcb wave2_max - wave2_min, 255, wave2_min, 1	; saw2
+	fcb wave1_max - wave1_min, 255, wave1_min, 1	; saw1
+	fcb wave0_max - wave0_min, 255, wave0_min, 1	; saw0
+
+	fcb wave2_max - wave2_min, 127, wave2_min, 1	; tri2
+	fcb wave2_max - wave2_min, 127, wave2_max, -1
+	fcb wave1_max - wave1_min, 127, wave1_min, 1	; tri1
+	fcb wave1_max - wave1_min, 127, wave1_max, -1
+	fcb wave0_max - wave0_min, 127, wave0_min, 1	; tri0
+	fcb wave0_max - wave0_min, 127, wave0_max, -1
+
+	fcb 0
 
 
 ;------------------------------------------------
