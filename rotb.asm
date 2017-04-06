@@ -301,7 +301,7 @@ code_entry
 	include "grfx/tiledata.asm"
 	include "grfx/sp_test.asm"
 	include "grfx/sp_explosion.asm"
-	include "grfx/sp_flap.asm"
+	include "grfx/sp_flap_2.asm"
 	include "grfx/sp_player.asm"
 	include "grfx/chardata_digits.asm"
 	include "player.asm"

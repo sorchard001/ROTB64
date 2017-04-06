@@ -33,7 +33,7 @@ intro
 	cmpb #127		;
 	bne 2f			; key or button pressed: skip over tty
 
-	lda #200
+	lda #100
 	jsr intr_delay
 	ldy #msg_intro1
 	jsr intr_stringz_slow
@@ -131,7 +131,7 @@ intr_pcls
 
 5	ldb #15
 6	com ,u
-	lda #15
+	lda #8
 	jsr intr_delay
 	decb
 	bne 6b

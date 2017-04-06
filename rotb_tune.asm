@@ -3,22 +3,9 @@
 ; Copyright 2014-2017 S. Orchard
 ;**********************************************************
 
+	; cyd needs to be page aligned
 	align 256
 
-include_wave macro
-\1	equ *+128
-	includebin "waves/&1.bin"
-	endm
-
-;	include_wave "saw2"
-;	include_wave "saw1"
-;	include_wave "saw0"
-
-;	include_wave "tri2"
-;	include_wave "tri1"
-;	include_wave "tri0"
-
-	; cyd needs to be page aligned
 	include "cyd.s"
 
 ;------------------------------------------------
@@ -75,13 +62,16 @@ init_cyd_waves
 	rts
 
 
+; block fill
+; start address in X, value in A, count in B
 block_fill
 1	sta ,x+
 	decb
 	bne 1b
 	rts
 
-
+; fill region with pseudo-random values
+; start address in X, scale factor in A, offset in B
 rnd_fill
 	sta 2f+1	; amplitude
 	stb 3f+1	; offset
@@ -109,7 +99,8 @@ wrndb adda #0
 	rts
 
 	
-; fill with increasing or decreasing value (1st or 8th octant only)
+; fill region with increasing or decreasing value (1st or 8th octant only)
+; start address in X, param address in U
 ramp_fill
 	ldd 1,u		; a=dx, b=y0
 	inca
@@ -138,27 +129,28 @@ wave1_max	equ $46
 wave0_min	equ $1e
 wave0_max	equ $38
 
-params
-	
+wave_quiescent	equ $2a
 
 cyd_wave_params
-	fdb $2a00			; silent
-	fdb $5480, $0180	; sqr2
-	fdb $4680, $0e80	; sqr1
-	fdb $3880, $1c80	; sqr0
 
-	;fdb $5440, $01c0	; pls2
-	;fdb $4640, $0ec0	; pls1
-	;fdb $3840, $1cc0	; pls0
+	; block fill parameter table: value, count
+	; (count=0 loops 256 times)
 
+	fcb wave_quiescent, 0				; silent
+	fcb wave2_max, 128, wave2_min, 128	; sqr2
+	fcb wave1_max, 128, wave1_min, 128	; sqr1
+	fcb wave0_max, 128, wave0_min, 128	; sqr0
 	fdb 0
 
-	fcb ($54-$01), $01	; nzz2
-	fcb ($46-$0e), $0e	; nzz1
-	fcb ($38-$1e), $1e	; nzz0
+	; noise parameter table:  scale factor, offset
+
+	fcb wave2_max - wave2_min, wave2_min	; nzz2
+	fcb wave1_max - wave1_min, wave1_min	; nzz1
+	fcb wave0_max - wave0_min, wave0_min	; nzz0
 	fdb 0
 
-	; ramp table |dy|, dx, y0, inc/dec
+	; ramp parameter table: |dy|, dx, y0, inc/dec
+	; (run length = dx + 1)
 
 	fcb wave2_max - wave2_min, 255, wave2_min, 1	; saw2
 	fcb wave1_max - wave1_min, 255, wave1_min, 1	; saw1

@@ -225,4 +225,6 @@ sp_player_expl_frames
 sp_flap_frames
 	fdb sp_flap_img
 	fdb sp_flap_img+1*384
+	fdb sp_flap_img+2*384
+	fdb sp_flap_img+3*384
 	fdb 0
