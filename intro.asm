@@ -5,9 +5,6 @@
 
 	section "CODE"
 
-intr_fg		equ temp1
-intr_bg		equ temp2
-
 	
 intro
 	if DBG_SKIP_INTRO
@@ -17,14 +14,14 @@ intro
 	;ldd #$aa55
 	;ldd #$aa00
 	ldd #$55aa
-	std intr_fg
+	std char_fg
 
 	jsr intr_pcls
 	
 	ldy #msg_title
 	jsr intr_stringz
 
-	jsr show_frame
+	jsr flip_frame_buffers
 
 	clr $ff02		; detect any key or button
 
@@ -49,7 +46,7 @@ intro
 	ldy #msg_start
 	jsr intr_stringz
 
-	jsr show_frame
+	jsr flip_frame_buffers
 	
 1	lda $ff00		; check for keys/buttons
 	anda #127		;
@@ -119,7 +116,7 @@ intr_delay
 3	puls b,pc
 
 intr_pcls
-	lda intr_bg
+	lda char_bg
 	tfr a,b
 	ldu td_fbuf
 	leau -CFG_TOPOFF,u		; top of screen
@@ -159,7 +156,7 @@ intr_stringz_slow
 	jsr intr_delay
 	bra 2b
 4	lda ,y+
-	sta intr_fg
+	sta char_fg
 	bra 2b
 	
 
@@ -174,7 +171,7 @@ intr_stringz
 	bsr intr_char
 	bra 2b
 4	lda ,y+
-	sta intr_fg
+	sta char_fg
 	bra 2b
 	
 intr_char
@@ -182,12 +179,12 @@ intr_char
 	mul
 	addd #allchars-(32*5)
 	tfr d,x
-intr_char_x
+;intr_char_x
 	ldb #-128
-1	lda intr_fg		; apply fg/bg colours
-	eora intr_bg	;
+1	lda char_fg		; apply fg/bg colours
+	eora char_bg	;
 	anda ,x+		;
-	eora intr_bg	;
+	eora char_bg	;
 	sta b,u
 	addb #32
 	cmpb #32
@@ -195,15 +192,6 @@ intr_char_x
 	leau 1,u
 9	rts
 
-
-
-show_frame
-	ldx #soundbuf		; reset sound buffer pointer
-	stx snd_buf_ptr		; (flip_frame_buffers generates sound)
-	jmp flip_frame_buffers
-
-
-	include "grfx/allchars.asm"
 
 MAC_MSG_POS macro
 	fdb MSG_TOP + \2*32*6 + \1

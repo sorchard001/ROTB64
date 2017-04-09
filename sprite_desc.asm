@@ -137,7 +137,7 @@ sp_std_update
 3	adda SP_DATA,u
 	anda #$3c
 	sta SP_DATA,u
-	ldx #enemy_vel_table
+	ldx #std_enemy_vel_table
 	leax a,x
 	ldd ,x
 	std SP_XVEL,u

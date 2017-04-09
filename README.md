@@ -1,16 +1,12 @@
 # ROTB
-Return of the Beast
 
-An arcade game for the Dragon
+Return of the Beast - An arcade game for the Dragon
 
 64K version work in progress
 
-ROTB
-Copyright 2014-2017 S. Orchard
+ROTB copyright 2014-2017 S. Orchard
 
-CyD
-Three channel music player
-Copyright 2013-2015 Ciaran Anscomb
+CyD three channel music player copyright 2013-2015 Ciaran Anscomb
 
 ### Build info
 
@@ -22,18 +18,19 @@ asm6809 -D -o rotb.bin rotb.asm
 
 Sound effects in the game are quite a bit louder than the title music so take care with headphones!
 
-Keyboard control:
-Left & right arrow keys to rotate, space bar to fire.
+Keyboard control: Left & right arrow keys to rotate, space bar to fire.
 
-Joystick control (RH):
-Point & shoot
+Joystick control (RH): Point & shoot
 
 Debug keys:
-1 - Change background colours
-2 - Show raster position
-3 - Warp
+
+1. Change background colours
+2. Show raster position
+3. Warp
+4. Spawn formation
 
 Please note the game is tuned for a Dragon at 50Hz and is broken at 60Hz.
+
 60Hz/CoCo support is planned for a future release. (When I figure out how!)
 
 ### Additional Info

@@ -45,28 +45,23 @@ en_sprite_init_form
 	std SP_FRAMEP,u
 	std SP_FRAME0,u
 
-	;ldd #sp_flap_img
-	;std SP_FRAME0,u
-	;ldd #0
-	;std SP_FRAMEP,u
-	
 	ldd #sp_form_enemy
 	std SP_DESC,u
 9	rts
 
 
 en_spawn
-	; calculate spawn coords & velocity based on player direction
+	; calculate spawn coords based on player direction
 	ldb player_dir
 	andb #30
 	lslb
-	ldy #enemy_vel_table
-	leay b,y
+	ldy #form_enemy_vel_table	; calculate formation velocity
+	leay b,y					;
 	lslb
 	ldx #form_coords
 	abx
 
-	lda en_spawn_count		; time to spawn formation yet?
+	lda en_spawn_count	; time to spawn formation yet?
 	bne 1f				; spawn standard enemy
 
 ; spawn enemy formation
@@ -172,35 +167,51 @@ exec_update_enemy
 	ldx SP_DESC,u
 	jmp [SP_UPDATE,x]
 	
+;-----------------------------------------------------------
+
+; velocity scale factors
+VSX	equ 64/256
+VSY	equ 32/256
+
+; macro to create a velocity table for 16 directions (22.5 degree steps)
+; parameter defines speed in pixels per frame.
+; first entry is west, subsequent entries counterclockwise.
+; (rotated 180 degrees compared to player directions)
+mac_velocity_table	macro
+
+1	equ 98 * \1
+2	equ 181 * \1
+3	equ 236 * \1
+4	equ 256 * \1
+
+	fdb -4b*VSX,  0
+	fdb -3b*VSX,  1b*VSY
+	fdb -2b*VSX,  2b*VSY
+	fdb -1b*VSX,  3b*VSY
+	fdb  0,       4b*VSY
+	fdb  1b*VSX,  3b*VSY
+	fdb  2b*VSX,  2b*VSY
+	fdb  3b*VSX,  1b*VSY
+	fdb  4b*VSX,  0
+	fdb  3b*VSX, -1b*VSY
+	fdb  2b*VSX, -2b*VSY
+	fdb  1b*VSX, -3b*VSY
+	fdb  0,      -4b*VSY
+	fdb -1b*VSX, -3b*VSY
+	fdb -2b*VSX, -2b*VSY
+	fdb -3b*VSX, -1b*VSY
+	endm
 
 
-_espeed equ 0.8*2;1.125*2
-	
-EN_V1	equ PR1 * _espeed ;128 ;72 ;48  ;98
-EN_V2	equ PR2 * _espeed ;224 ;135 ;90  ;181
-EN_V3	equ PR3 * _espeed ;296 ;180 ;120 ;236
-EN_V4	equ PR4 * _espeed ;320 ;192 ;128 ;256
 
-EVSX	equ 64/256
-EVSY	equ 32/256
-	
-enemy_vel_table
-	fdb -EN_V4 * EVSX,	0
-	fdb -EN_V3 * EVSX,	EN_V1 * EVSY
-	fdb -EN_V2 * EVSX,	EN_V2 * EVSY
-	fdb -EN_V1 * EVSX,	EN_V3 * EVSY
-	fdb 0,				EN_V4 * EVSY
-	fdb EN_V1 * EVSX,	EN_V3 * EVSY
-	fdb EN_V2 * EVSX,	EN_V2 * EVSY
-	fdb EN_V3 * EVSX,	EN_V1 * EVSY
-	fdb EN_V4 * EVSX,	0
-	fdb EN_V3 * EVSX,	-EN_V1 * EVSY
-	fdb EN_V2 * EVSX,	-EN_V2 * EVSY
-	fdb EN_V1 * EVSX,	-EN_V3 * EVSY
-	fdb 0,				-EN_V4 * EVSY
-	fdb -EN_V1 * EVSX,	-EN_V3 * EVSY
-	fdb -EN_V2 * EVSX,	-EN_V2 * EVSY
-	fdb -EN_V3 * EVSX,	-EN_V1 * EVSY
-	
+; standard enemy velocity table
+std_enemy_vel_table
+	mac_velocity_table 0.8
+
+; formation enemy velocity table
+form_enemy_vel_table
+	mac_velocity_table 1.1
+
+
 
 	include "coords.asm"

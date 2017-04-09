@@ -167,24 +167,8 @@ rndtable_end	equ *
 draw_strz
 2	ldb ,y+
 	beq 1f
-	subb #32
-	lda #5
-	mul
-	bsr draw_char
-	leau 1,u
+	jsr draw_char
 	bra 2b
-	
-draw_char
-	ldx #allchars
-	leax d,x
-	ldd ,x
-	sta -64,u
-	stb -32,u
-	ldd 2,x
-	sta ,u
-	stb 32,u
-	lda 4,x
-	sta 64,u
 1	rts
 
 msg_game_over	fcc "GAME OVER PUNY HUMAN",0
@@ -304,6 +288,9 @@ code_entry
 	include "grfx/sp_flap_2.asm"
 	include "grfx/sp_player.asm"
 	include "grfx/chardata_digits.asm"
+	include "grfx/allchars.asm"
+
+	include "screen.asm"
 	include "player.asm"
 	include "sprite_desc.asm"
 	include "sprites.asm"
@@ -413,7 +400,7 @@ MLOOP
 1
   endif
   
-	jsr flip_frame_buffers
+	jsr flip_frame_buffers_snd
 
 
 	; 1 - CHANGE COLOUR SET
@@ -422,12 +409,11 @@ MLOOP
 	bne 1f
 	jsr colour_change
 
-	; 4
-1	;lda #1
-	;bita keytable+4
-	;bne 1f
-	;ldx #SND_TONE4
-	;jsr snd_start_fx_force
+	; 4 - SPAWN FORMATION
+1	lda #1
+	bita keytable+4
+	bne 1f
+	clr en_spawn_count
 
 1
  if DBG_RASTER
@@ -740,35 +726,7 @@ draw_digit
 	;lda 6,x
 	;sta 96,u
 	rts
-	
 
-;*************************************
-; Swap front and back frame buffers
-;*************************************
-
-flip_frame_buffers
-  	lda $ff02	; clear fs flag
-
-2	ldx #50
-1	lda $ff03	; check for fs
-	bmi 3f		;
-	leax -1,x
-	bne 1b		; 16 cycles per loop
-	lda [snd_buf_ptr]
-	sta $ff20
-	inc snd_buf_ptr+1
-	bra 2b
-	
-3	com frmflag
-	beq 90f
-	lda #(FBUF0+CFG_TOPOFF) >> 8
-	sta td_fbuf
-	CFG_MAC_SET_FBUF1
-	rts
-90	lda #(FBUF1+CFG_TOPOFF) >> 8
-	sta td_fbuf
-	CFG_MAC_SET_FBUF0
-	rts
 
 ;*************************************
 ; warp intro effect at start of level
@@ -921,7 +879,7 @@ pw_draw_warp
 90
   endif
 
-	jmp flip_frame_buffers
+	jmp flip_frame_buffers_snd
 
 	
 ;*************************************
@@ -937,74 +895,6 @@ pw_draw_player
 	
 ;*************************************
 
-pf_tog		equ temp0
-pf_fcount	equ temp1
-pf_vcount	equ temp2
-
-pixel_fade
-	jsr snd_clear_buf
-	
-	; copy displayed screen to backbuffer
-	; so display doesn't jump up and down
-	ldd td_fbuf
-	tfr d,x
-	eora #FBUF_TOG_HI	; get address of other buffer
-	tfr d,u
-	ldy #TD_SBSIZE >> 1
-1	ldd ,u++
-	std ,x++
-	leay -1,y
-	bne 1b
-
-	lda #32				; 16 levels of dither over 32 frames
-	sta pf_fcount
-	ldu #pf_dither_table
-	clr pf_tog
-3	
-	ldx td_fbuf			; top of screen
-	ldb 1,u				; get next row offset
-	abx					; move to required row
-	lda #TD_TILEROWS*2	; number of rows
-	sta pf_vcount		;
-
-2	ldy #16				; 16 words per row
-1	ldd ,x				; apply dither mask
-	anda ,u				;
-	andb ,u				;
-	std ,x++			;
-	leay -1,y			;
-	bne 1b				; loop until row done
-	leax 96,x
-	dec pf_vcount
-	bne 2b				; next row
-	
-	ldx #soundbuf		; reset sound buffer pointer
-	stx snd_buf_ptr		; (flip_frame_buffers generates sound)
-
-	jsr flip_frame_buffers
-
-	com pf_tog			; advance dither pattern every 2 frames
-	bne 5f				; to keep odd & even frames the same
-	leau 2,u			;
-5	dec pf_fcount		;
-	bne 3b				; next frame
-	
-	rts
-
-; 1st byte is mask, 2nd byte is row offset
-pf_dither_table
-	fcb $3f, 0,$f3,64,$f3, 0,$3f,64
-	fcb $cf,32,$fc,96,$fc,32,$cf,96
-	fcb $cf, 0,$fc,64,$fc, 0,$cf,64
-	fcb $3f,32,$f3,96,$f3,32,$3f,96
-
-; ordered dither matrix
-; 1  9  3 11
-;13  5 15  7
-; 4 12  2 10
-;16  8 14  6
-	
-;*************************************
 	
 	section "CODE"
 __end_code
