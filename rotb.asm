@@ -162,17 +162,6 @@ rndtable_end	equ *
 
 	org CFG_RAMCODE_ORG
 	put CFG_RAMCODE_PUT
-
-
-draw_strz
-2	ldb ,y+
-	beq 1f
-	jsr draw_char
-	bra 2b
-1	rts
-
-msg_game_over	fcc "GAME OVER PUNY HUMAN",0
-msg_restart		fcc "SPACE OR FIRE TO PLAY AGAIN",0
 	
 ;**********************************************************
 
@@ -274,7 +263,6 @@ code_entry
 
 	jmp START_GAME
 
-	include "intro.asm"
 
 	
 ;**********************************************************
@@ -298,6 +286,7 @@ code_entry
 	include "sound.asm"
 	include "colour_change.asm"
 	include "controls.asm"
+	include "intro.asm"
 
 TD_SBUFF	equ CFG_SBUFF		; start of shift buffers
 TD_TILEROWS	equ CFG_TILEROWS	; number of rows of tiles
@@ -548,20 +537,8 @@ fl_mode_death
 	lda lives
 	lbne NEXT_LIFE
 
-	ldd td_fbuf
-	eora #FBUF_TOG_HI
-	addd #32*32+5
-	tfr d,u
 	ldy #msg_game_over
-	jsr draw_strz
-	
-	ldd td_fbuf
-	eora #FBUF_TOG_HI
-	addd #48*32+2
-	tfr d,u
-	ldy #msg_restart
-	jsr draw_strz
-
+	jsr draw_msg_front
 	
 5	jsr scan_keys
 	jsr select_controls

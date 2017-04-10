@@ -11,15 +11,13 @@ intro
 	rts
 	endif
 
-	;ldd #$aa55
-	;ldd #$aa00
-	ldd #$55aa
-	std char_fg
+	lda #TEXT_BLUE
+	sta char_bg
 
-	jsr intr_pcls
+	jsr screen_clear_back
 	
 	ldy #msg_title
-	jsr intr_stringz
+	jsr draw_msg_back
 
 	jsr flip_frame_buffers
 
@@ -44,7 +42,7 @@ intro
 	blo 1b
 
 	ldy #msg_start
-	jsr intr_stringz
+	jsr draw_msg_back
 
 	jsr flip_frame_buffers
 	
@@ -115,16 +113,6 @@ intr_delay
 	bne 2b
 3	puls b,pc
 
-intr_pcls
-	lda char_bg
-	tfr a,b
-	ldu td_fbuf
-	leau -CFG_TOPOFF,u		; top of screen
-	ldx #1536
-1	std ,u++
-	leax -1,x
-	bne 1b
-	rts
 
 5	ldb #15
 6	com ,u
@@ -133,15 +121,15 @@ intr_pcls
 	decb
 	bne 6b
 intr_stringz_slow
-1	ldd ,y++
+1	ldu ,y++
 	beq 9f
-	addd td_fbuf
+	ldd td_fbuf
 	eora #FBUF_TOG_HI
-	tfr d,u
+	leau d,u
 2	ldb ,y+
 	bmi 4f
 	beq 5b
-	bsr intr_char
+	jsr draw_char
 	com ,u
 	ldx #10
 	ldb #64
@@ -158,64 +146,28 @@ intr_stringz_slow
 4	lda ,y+
 	sta char_fg
 	bra 2b
-	
 
-intr_stringz
-1	ldd ,y++
-	beq 9f
-	addd td_fbuf
-	tfr d,u
-2	ldb ,y+
-	bmi 4f
-	beq 1b
-	bsr intr_char
-	bra 2b
-4	lda ,y+
-	sta char_fg
-	bra 2b
-	
-intr_char
-	lda #5
-	mul
-	addd #allchars-(32*5)
-	tfr d,x
-;intr_char_x
-	ldb #-128
-1	lda char_fg		; apply fg/bg colours
-	eora char_bg	;
-	anda ,x+		;
-	eora char_bg	;
-	sta b,u
-	addb #32
-	cmpb #32
-	bne 1b
-	leau 1,u
 9	rts
 
 
-MAC_MSG_POS macro
-	fdb MSG_TOP + \2*32*6 + \1
-	endm
-	
-MSG_TOP	equ -CFG_TOPOFF+128
 	
 msg_title
 	MAC_MSG_POS 1,1
-	fcc -1,$55,"RETURN OF THE BEAST",0
+	fcc -1,TEXT_YELLOW,"RETURN OF THE BEAST",0
 	MAC_MSG_POS 1,2
-	fcc -1,0,"FOR THE DRAGON 64",0
+	fcc -1,TEXT_GREEN,"FOR THE DRAGON 64",0
 	MAC_MSG_POS 1,3
 	fcc "(C) 2014-2017 S.ORCHARD",0
 
 	MAC_MSG_POS 1,5
-	fcc -1,$55,"THERE'S GOOD CYD",0
+	fcc -1,TEXT_YELLOW,"THERE'S GOOD CYD",0
 	MAC_MSG_POS 1,6
-	fcc -1,0,"3 CHANNEL MUSIC PLAYER",0
+	fcc -1,TEXT_GREEN,"3 CHANNEL MUSIC PLAYER",0
 	MAC_MSG_POS 1,7
 	fcc "(C) 2013-2015 CIARAN ANSCOMB",0
 	
 	MAC_MSG_POS 1,9
-	fcc "SPECIAL THANKS TO ",-1,$55,"BOSCO",-1,0," FOR",0
+	fcc "SPECIAL THANKS TO ",-1,TEXT_YELLOW,"BOSCO",-1,TEXT_GREEN," FOR",0
 	MAC_MSG_POS 1,10
 	fcc "GREAT IDEAS AND INSPIRATION",0
 	
@@ -224,7 +176,7 @@ msg_title
 
 msg_intro1
 	MAC_MSG_POS 1,14
-	fcc -1,$55,"WAY DOWN DEEP",0
+	fcc -1,TEXT_YELLOW,"WAY DOWN DEEP",0
 	MAC_MSG_POS 1,15
 	fcc "IN THE MIDDLE OF THE CONGO...",0
 	fdb 0

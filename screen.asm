@@ -52,8 +52,8 @@ pf_fcount	equ temp1
 pf_vcount	equ temp2
 
 pixel_fade
-	jsr snd_clear_buf
-	
+	;jsr snd_clear_buf
+
 	; copy front buffer to back
 	; so display doesn't jump up and down
 	ldd td_fbuf
@@ -70,7 +70,7 @@ pixel_fade
 	sta pf_fcount
 	ldu #pf_dither_table
 	clr pf_tog
-3	
+3
 	ldx td_fbuf			; top of screen
 	ldb 1,u				; get next row offset
 	abx					; move to required row
@@ -111,25 +111,28 @@ pf_dither_table
 ; 4 12  2 10
 ;16  8 14  6
 
+
 ;**********************************************************
-; draw character
-; ascii code in B
-; destination in U
-; leaves U pointing to next position
+; text drawing routines
 
 	section "DPVARS"
 
-char_fg		rmb 1		; character foreground colour mask
-char_bg		rmb 1		; character background colour mask
+char_fg			rmb 1		; character foreground colour mask
+char_bg			rmb 1		; character background colour mask
+msg_buf_sel		rmb 1		; selects front or back buffer for messages
+
 
 	section "CODE"
+
+; draw ascii character B to address U-128
+; applies foreground/background colours
+; leaves U pointing 1 byte to right
 
 draw_char
 	lda #5
 	mul
 	addd #allchars-(32*5)
 	tfr d,x
-;intr_char_x
 	ldb #-128
 1	lda char_fg		; apply fg/bg colours
 	eora char_bg	;
@@ -140,4 +143,88 @@ draw_char
 	cmpb #32
 	bne 1b
 	leau 1,u
+9	rts
+
+; draw zero-terminated string at Y to address U-128
+
+draw_strz
+2	ldb ,y+
+	beq 9b		; rts
+	bsr draw_char
+	bra 2b
+
+
+; draw message at Y to front buffer
+
+draw_msg_front
+	lda #FBUF_TOG_HI
+	fcb $c6		; ldb # hides clra
+
+; draw message at Y to back buffer
+
+draw_msg_back
+	clra
+	sta msg_buf_sel
+
+; draw message using existing buffer selection
+
+draw_msg
+1	ldu ,y++
+	beq 9b		; rts
+	ldd td_fbuf
+	eora msg_buf_sel	; select front or back buffer
+	leau d,u
+2	ldb ,y+
+	bmi 4f
+	beq 1b
+	bsr draw_char
+	bra 2b
+4	lda ,y+
+	sta char_fg
+	bra 2b
+
+
+;**********************************************************
+
+; helper macro to create screen address offset for text
+; 1st param char column, 2nd param char row
+MAC_MSG_POS macro
+	fdb -CFG_TOPOFF + 128 + \2*32*6 + \1
+	endm
+
+; define text colour masks
+TEXT_GREEN	equ $00
+TEXT_YELLOW	equ $55
+TEXT_BLUE	equ $aa
+TEXT_RED	equ $ff
+
+;**********************************************************
+; text messages
+; screen position word followed by asciiz string
+; foreground colour changes embedded in string with [-1, colour]
+
+msg_game_over
+	MAC_MSG_POS 5,6
+	fcc -1,TEXT_YELLOW,"GAME OVER PUNY HUMAN",0
+
+msg_restart
+	MAC_MSG_POS 2,8
+	fcc "SPACE OR FIRE TO PLAY AGAIN",0
+	fdb 0
+
+
+
+;**********************************************************
+; clear back buffer to background colour
+; (including status area)
+
+screen_clear_back
+	lda char_bg
+	tfr a,b
+	ldu td_fbuf
+	leau -CFG_TOPOFF,u		; top of screen
+	ldx #1536
+1	std ,u++
+	leax -1,x
+	bne 1b
 	rts
