@@ -75,8 +75,8 @@ CFG_MAC_SET_FBUF1 macro
 	sta $ffcd	; 4K on
 	endm
 
-	
-	
+
+
 ; offset of play area from top of screen (must be multiple of 256)
 CFG_TOPOFF		equ $100
 
@@ -85,7 +85,7 @@ CFG_NUM_SPRITES	equ 8
 
 ; number of player bullets (max 8)
 CFG_NUM_PB		equ 6
-	
+
 ;**********************************************************
 
 ; display frame buffers
@@ -100,7 +100,7 @@ TOGMODE	macro
 	eora #$18
 	sta $ff22
 	endm
-	
+
 ;**********************************************************
 
 	section "DPVARS"
@@ -150,19 +150,19 @@ temp12			rmb 1
 ;**********************************************************
 
 	section "DATA"
-	
+
 rndtable		rmb 48
 rndtable_end	equ *
 
 ;**********************************************************
 
 	section "RAMCODE"
-	
+
 	setdp DPVARS >> 8
 
 	org CFG_RAMCODE_ORG
 	put CFG_RAMCODE_PUT
-	
+
 ;**********************************************************
 
 	section "CODE"
@@ -173,7 +173,7 @@ rndtable_end	equ *
 	; rotb_tune must be page aligned
 	include "rotb_tune.asm"
 
-	
+
 code_entry
 	;orcc #$50
 
@@ -182,7 +182,7 @@ code_entry
 	setdp DPVARS >> 8
 
 	clr $ff48		; disable disk motor & nmi
-	
+
 	lds #CFG_STACK
 
 	ldd #$34fc
@@ -211,11 +211,11 @@ code_entry
 	cmpx #__end_ramcode_org
 	blo 1b
   endif
-	
+
   if DBG_RASTER
 	clr show_raster
   endif
-	
+
 	ldx #rndtable			; prefill random number table
 	stx rnd_ptr
 	ldb #(rndtable_end - rndtable)
@@ -227,7 +227,7 @@ code_entry
 	jsr snd_init			; initialise sound engine
 	jsr td_init				; initialise tile engine
 	jsr colour_change_init	; initialise palette
-	
+
 	clra
 	clrb
 	ldx #FBUF0				; clear frame buffers
@@ -239,11 +239,11 @@ code_entry
 	clr frmflag
 	jsr flip_frame_buffers
 
-	
+
 	CFG_MAC_SET_VIDMODE
 
 	jsr intro
-	
+
 	clra
 	clrb
 	ldx #FBUF0				; clear score area
@@ -264,9 +264,9 @@ code_entry
 	jmp START_GAME
 
 
-	
+
 ;**********************************************************
-	
+
 	section "CODE"
 
 
@@ -275,6 +275,7 @@ code_entry
 	include "grfx/sp_explosion.asm"
 	include "grfx/sp_flap_2.asm"
 	include "grfx/sp_player.asm"
+	include "grfx/sp_pmissile.asm"
 	include "grfx/chardata_digits.asm"
 	include "grfx/allchars.asm"
 
@@ -294,7 +295,7 @@ TD_TILEROWS	equ CFG_TILEROWS	; number of rows of tiles
 	include "tiledriver.asm"
 
 START_GAME
-	
+
 	ldd #$aaaa				; prefill shift buffers
 	ldx #TD_SBUFF
 1	std ,x++
@@ -302,7 +303,7 @@ START_GAME
 	blo 1b
 
 RESTART_GAME
-	
+
 	lda #4
 	sta en_std_max
 	lda #CFG_LIVES
@@ -311,10 +312,10 @@ RESTART_GAME
 	clrb
 	std score2
 	sta score0
-	
+
 START_LEVEL
 	clr en_count
-	
+
 NEXT_LIFE
 
 START_DIR	equ 8
@@ -333,12 +334,12 @@ START_DIR	equ 8
 	ldd #exec_table_normal
 	std exec_ptr
 	clr bonus_tmr
-	
+
 	jsr warp_intro
-	
+
 ;-------------------------
 
-MLOOP 
+MLOOP
 
 	; update sounds
 	jsr snd_update
@@ -365,7 +366,7 @@ MLOOP
 
 	; copy background to frame buffer
 	jsr td_copybuf
-	
+
 	; draw non-collidable sprites
 	jsr sp_update_non_collidable
 
@@ -388,7 +389,7 @@ MLOOP
 	TOGMODE
 1
   endif
-  
+
 	jsr flip_frame_buffers_snd
 
 
@@ -411,8 +412,8 @@ MLOOP
 	eora #1
 	sta show_raster
  endif
- 
-1 
+
+1
 	jsr rnd_number
 
 	; bonus
@@ -421,8 +422,8 @@ MLOOP
 	dec bonus_tmr
 	bne 1f
 	jsr [bonus_ptr]
-	
-1	
+
+1
 	; housekeeping list
 	ldu exec_ptr
 	ldx ,u++
@@ -431,31 +432,31 @@ MLOOP
 	ldx ,u++
 1	stu exec_ptr
 	jsr ,x
-	
-	
+
+
 	jmp MLOOP
 
 end_level
 	jsr warp_outro
 	jsr pixel_fade
 	jmp START_LEVEL
-	
+
 ;*************************************
 
 fl_mode_normal
 	; player ship
 	jsr draw_player
-	
+
 	; update player bullets (move, draw & save data for collision detect)
 	jsr pb_update_all
-	
+
 	; draw collidable sprites
 	jsr sp_update_collidable
 
 	jsr player_collision
 
 	jsr [control_set]
-	
+
 	; 3
 1	lda #1
 	bita keytable+3
@@ -471,10 +472,10 @@ fl_mode_normal
 fl_mode_warp_out
 	; player ship
 	jsr draw_player
-	
+
 	; update player bullets (move, draw & save data for collision detect)
 	jsr pb_update_all
-	
+
 	; draw collidable sprites
 	jsr sp_update_collidable
 
@@ -500,15 +501,15 @@ fl_mode_warp_out
 	cmpa #CFG_NUM_SPRITES
 	bhs 1f
 	inc en_std_max
-	
+
 1	leas 2,s
 	jmp START_LEVEL
-	
+
 
 fl_mode_death
 	; update player bullets (move, draw & save data for collision detect)
 	jsr pb_update_all
-	
+
 	; draw collidable sprites
 	jsr sp_update_collidable
 
@@ -525,9 +526,9 @@ fl_mode_death
 	ldd sp_ncol_list	; add sprite to non-collidable list
 	std SP_LINK,u		;
 	stu sp_ncol_list	;
-	
+
 	jsr player_explosion
-	
+
 1	dec death_tmr
 	bne 1f
 
@@ -537,9 +538,11 @@ fl_mode_death
 	lda lives
 	lbne NEXT_LIFE
 
+	lda #TEXT_GREEN
+	sta text_bg
 	ldy #msg_game_over
 	jsr draw_msg_front
-	
+
 5	jsr scan_keys
 	jsr select_controls
 	bne 5b
@@ -555,7 +558,7 @@ fl_mode_death
 ; converted from c source found on www.eternityforest.com
 
 	section "RAMCODE"
-	
+
 rnd_number
 rndx lda #0
 	inca
@@ -569,7 +572,7 @@ rndb adda #0
 	adda rndc+1
 	eora rnda+1
 	sta rndc+1
-	
+
 	ldx rnd_ptr
 	sta ,x+
 	cmpx #rndtable_end
@@ -628,7 +631,7 @@ exec_table_nospawn_rst
 	fdb draw_score0
 	fdb exec_update_enemy
 	fdb 0, exec_table_nospawn_rst
-	
+
 exec_nop
 	rts
 
@@ -657,7 +660,7 @@ draw_lives
 	ldy #lives
 	bra draw_digits
 
-	
+
 SCORE_POS	equ 25-160
 
 draw_score2
@@ -707,8 +710,8 @@ draw_digit
 
 ;*************************************
 ; warp intro effect at start of level
- 
-warp_intro	
+
+warp_intro
 	lda #128
 	sta pw_speed
 	clr pw_speed_acc
@@ -717,10 +720,10 @@ warp_intro
 	ldd #(PLYR_TOP*32)-16*32
 	std pw_start
 	clr pw_toggle
-	
+
 	ldx #SND_WARPIN
 	jsr snd_start_fx_force
-	
+
 1	jsr pw_draw_warp
 	ldx pw_start
 	leax 16,x
@@ -757,7 +760,7 @@ pw_temp			equ temp10		; byte
 ;*************************************
 ; warp out effect at end of level
 
-warp_outro	
+warp_outro
 	lda #32
 	sta pw_speed
 	clr pw_speed_acc
@@ -767,13 +770,13 @@ warp_outro
 	ldd #(PLYR_TOP*32)+14
 	std pw_start
 	clr pw_toggle
-	
+
 	;ldx #SND_WARPOUT
 	;jsr snd_start_fx_force
-	
+
 	lda #104 ;96
 	sta pw_count
-	
+
 1	jsr pw_draw_warp
 
 	lda pw_speed
@@ -816,7 +819,7 @@ pw_draw_warp
 3	dec pw_temp
 	bne 2b
 	jsr td_copybuf
-	
+
 	ldx td_fbuf
 	ldd pw_start
 	andb #$e0
@@ -828,7 +831,7 @@ pw_draw_warp
 	lda [snd_buf_ptr]
 	sta $ff20
 	inc snd_buf_ptr+1
-	
+
 	lda #8
 	sta pw_temp
 5	ldd pw_offset_acc
@@ -847,7 +850,7 @@ pw_draw_warp
 	bne 5b
 
 	com pw_toggle
-	
+
   if DBG_RASTER
 	lda show_raster
 	beq 90f
@@ -858,9 +861,9 @@ pw_draw_warp
 
 	jmp flip_frame_buffers_snd
 
-	
+
 ;*************************************
-; draw player ship pointing up	
+; draw player ship pointing up
 
 pw_draw_player
 	lda #PLYR_HGT
@@ -869,10 +872,10 @@ pw_draw_player
 	lda #32
 	sta pdraw_inc
 	jmp pdraw_general
-	
+
 ;*************************************
 
-	
+
 	section "CODE"
 __end_code
 

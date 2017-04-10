@@ -12,7 +12,7 @@ intro
 	endif
 
 	lda #TEXT_BLUE
-	sta char_bg
+	sta text_bg
 
 	jsr screen_clear_back
 	
@@ -144,7 +144,7 @@ intr_stringz_slow
 	jsr intr_delay
 	bra 2b
 4	lda ,y+
-	sta char_fg
+	sta text_fg
 	bra 2b
 
 9	rts

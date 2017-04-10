@@ -117,8 +117,8 @@ pf_dither_table
 
 	section "DPVARS"
 
-char_fg			rmb 1		; character foreground colour mask
-char_bg			rmb 1		; character background colour mask
+text_fg			rmb 1		; character foreground colour mask
+text_bg			rmb 1		; character background colour mask
 msg_buf_sel		rmb 1		; selects front or back buffer for messages
 
 
@@ -134,10 +134,10 @@ draw_char
 	addd #allchars-(32*5)
 	tfr d,x
 	ldb #-128
-1	lda char_fg		; apply fg/bg colours
-	eora char_bg	;
+1	lda text_fg		; apply fg/bg colours
+	eora text_bg	;
 	anda ,x+		;
-	eora char_bg	;
+	eora text_bg	;
 	sta b,u
 	addb #32
 	cmpb #32
@@ -180,7 +180,7 @@ draw_msg
 	bsr draw_char
 	bra 2b
 4	lda ,y+
-	sta char_fg
+	sta text_fg
 	bra 2b
 
 
@@ -219,7 +219,7 @@ msg_restart
 ; (including status area)
 
 screen_clear_back
-	lda char_bg
+	lda text_bg
 	tfr a,b
 	ldu td_fbuf
 	leau -CFG_TOPOFF,u		; top of screen
