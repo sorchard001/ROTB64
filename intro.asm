@@ -5,7 +5,7 @@
 
 	section "CODE"
 
-	
+
 intro
 	if DBG_SKIP_INTRO
 	rts
@@ -15,7 +15,7 @@ intro
 	sta text_bg
 
 	jsr screen_clear_back
-	
+
 	ldy #msg_title
 	jsr draw_msg_back
 
@@ -32,7 +32,7 @@ intro
 	jsr intr_delay
 	ldy #msg_intro1
 	jsr intr_stringz_slow
-	
+
 2	ldu td_fbuf
 	leau -CFG_TOPOFF,u		; top of screen
 	ldx #title_screen
@@ -45,14 +45,14 @@ intro
 	jsr draw_msg_back
 
 	jsr flip_frame_buffers
-	
+
 1	lda $ff00		; check for keys/buttons
 	anda #127		;
 	cmpa #127		;
 	bne 1b			; key or button pressed
 
 	jsr init_cyd_waves
-	
+
 intro_loop
 
 	pshs dp
@@ -69,13 +69,13 @@ intro_loop
 ;	endif
 
 	clr $ff02		; setup to detect any key or button
-	
+
 1	jsr	play_frag	; play 20ms of music
 	lda $ff00		; check for keys/buttons
 	anda #127		;
 	cmpa #127		;
 	beq 1b			; no keys or buttons pressed
-	
+
 	lda #$ff		; check for fire button
 	sta $ff02		;
 	lda $ff00		;
@@ -87,7 +87,7 @@ intro_loop
 	lda $ff00		;
 	bita #$20		;
 	bne 1b			; spacebar not pressed
-	
+
 2	puls dp
 
 	jsr scan_keys
@@ -150,7 +150,7 @@ intr_stringz_slow
 9	rts
 
 
-	
+
 msg_title
 	MAC_MSG_POS 1,1
 	fcc -1,TEXT_YELLOW,"RETURN OF THE BEAST",0
@@ -165,12 +165,12 @@ msg_title
 	fcc -1,TEXT_GREEN,"3 CHANNEL MUSIC PLAYER",0
 	MAC_MSG_POS 1,7
 	fcc "(C) 2013-2015 CIARAN ANSCOMB",0
-	
+
 	MAC_MSG_POS 1,9
 	fcc "SPECIAL THANKS TO ",-1,TEXT_YELLOW,"BOSCO",-1,TEXT_GREEN," FOR",0
 	MAC_MSG_POS 1,10
 	fcc "GREAT IDEAS AND INSPIRATION",0
-	
+
 	fdb 0
 
 
@@ -182,12 +182,11 @@ msg_intro1
 	fdb 0
 
 
-	
+
 msg_start
 	MAC_MSG_POS 5,14
 	fcc "SPACE OR FIRE TO START",0
 	fdb 0
 
-title_screen	
+title_screen
 	includebin "grfx/title_screen.bin"
-	

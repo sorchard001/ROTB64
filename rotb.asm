@@ -283,6 +283,7 @@ code_entry
 	include "player.asm"
 	include "sprite_desc.asm"
 	include "sprites.asm"
+	include "sprites_3x8.asm"
 	include "enemies.asm"
 	include "sound.asm"
 	include "colour_change.asm"
@@ -380,6 +381,8 @@ MLOOP
 	andb #30
 	ldu b,x
 	stu scroll_x_inc
+
+	jsr sp_test_3x8
 
 	; show position of raster on screen
   if DBG_RASTER

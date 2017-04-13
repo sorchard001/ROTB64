@@ -4,7 +4,7 @@
 ;**********************************************************
 
 	section "DPVARS"
-	
+
 sp_free_list	rmb 2	; ptr to list of unused sprites
 sp_pcol_list	rmb 2	; ptr to list of collidable sprites
 sp_ncol_list	rmb 2	; ptr to list of non-collidable sprites
@@ -31,7 +31,7 @@ sp_spare	rmb SP_SIZE * 2
 		org CFG_SPRITE_DATA
 
 ; mask + image requires 96 bytes (4x12 sprite)
-		
+
 sp_test_img			rmb 96*4
 sp_explosion_img	rmb 96*4*4
 sp_flap_img			rmb 96*4*4
@@ -56,7 +56,7 @@ sp_init_all
 	bne 1b
 	std SP_LINK-SP_SIZE,x
 	clr kill_count
-	
+
 	jsr sp_unpack
 	rts
 
@@ -72,7 +72,7 @@ sp_update_non_collidable
 	clr sp_col_enable			; disable player bullet collision detect
 	ldy #sp_ncol_list-SP_LINK	; initial 'previous' sprite
 	jmp sp_update_sp4x12_next
-	
+
 
 
 SCRN_HGT equ TD_TILEROWS*8
@@ -97,7 +97,7 @@ pb_hit_\1
 	pb_col_hit_mac 5
 	pb_col_hit_mac 6
 	pb_col_hit_mac 7
-	
+
 
 pb_hit
 	incb				; set collision flag
@@ -142,7 +142,7 @@ _pb_col_data
 	beq sp_update_sp4x12_next	; no hit
 
 	ldu SP_DESC,y	; point to additional sprite info
-	
+
 	lda score0
 	adda SP_SCORE,u
 	daa
@@ -158,7 +158,7 @@ _pb_col_data
 
 	ldx SP_EXPL,u			; explosion sound effect
 1	jsr snd_start_fx		;
-	
+
 	ldd #sp_expl_frames		; turn sprite into explosion
 	std SP_FRAMEP,y
 	ldd #0
@@ -168,7 +168,7 @@ _pb_col_data
 
 	jmp [SP_DPTR,u]		; additional code to run on destruction
 sp_dptr_rtn				; return from destruction routine
-	
+
 	ldx sp_prev_ptr		; remove sprite from current list
 	ldd SP_LINK,y		;
 	std SP_LINK,x		;
@@ -181,7 +181,7 @@ sp_dptr_rtn				; return from destruction routine
 
 SND_FX_TAB	fdb SND_TONE2,SND_TONE3,SND_TONE4,SND_TONE5
 
-	
+
 sp_update_sp4x12_next
 	sty sp_prev_ptr
 	ldy SP_LINK,y
@@ -260,7 +260,7 @@ sp_update_sp4x12
 	nega
 	sta td_count	; clipped height
 	ldd SP_YORD,y
-2	
+2
 	;ldd SP_YORD,y	; y offset
 	andb #$e0		; remove sub-pixel bits
 	adda td_fbuf	; screen base
@@ -287,7 +287,7 @@ sp_offscreen
 	ldu SP_DESC,y		; pointer to descriptor
 	jmp [SP_OFFSCR,u]	; off-screen handler
 
-sp_form_offscreen	
+sp_form_offscreen
 	lda SP_XORD,y
 	cmpa #-6
 	blt sp_remove
@@ -300,7 +300,7 @@ sp_form_offscreen
 	bge sp_remove
 	jmp sp_update_sp4x12_next
 
-	
+
 
 	; horizontal clip table. Thanks to Bosco for this idea!
 
@@ -351,7 +351,7 @@ sp_draw_clip_table
 
 
 
-; draw sprite	
+; draw sprite
 sp_draw_sp4x12
 	lsr td_count
 	bcc 1f
@@ -474,11 +474,12 @@ sp_unpack
 	bsr sp_copy_3x12_to_4x12
 	bsr sp_copy_3x12_to_4x12
 	bsr sp_copy_3x12_to_4x12
-	
+
+	jsr sp_unpack_3x8
 	rts
 
-	
-; copies 3 byte wide sprite to 4 byte wide format	
+
+; copies 3 byte wide sprite to 4 byte wide format
 sp_copy_3x12_to_4x12
 	lda #12
 	sta td_count
@@ -494,7 +495,7 @@ sp_copy_3x12_to_4x12
 	std ,y++		;
 	dec td_count
 	bne 1b
-	
+
 	leau 36,u		; point to next frame
 
 	lda #3
