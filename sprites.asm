@@ -475,7 +475,6 @@ sp_unpack
 	bsr sp_copy_3x12_to_4x12
 	bsr sp_copy_3x12_to_4x12
 
-	jsr sp_unpack_3x8
 	rts
 
 

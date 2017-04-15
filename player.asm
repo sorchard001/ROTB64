@@ -29,7 +29,7 @@ draw_player
 	ldb #32
 	leax (PLYR_TOP*32)+14,x
 	bra 20f
-	
+
 10	ldb #-32
 	leax ((PLYR_TOP+PLYR_HGT-1)*32)+14,x
 
@@ -38,7 +38,7 @@ draw_player
 	stb pcol_inc
 	stx pcol_dst
 
-pdraw_general	
+pdraw_general
 1	pulu d
 	anda ,x
 	andb 1,x
@@ -53,9 +53,9 @@ pdraw_inc equ *+2
 	leax <32,x
 	dec td_count
 	bne 1b
-	
+
 	rts
-	
+
 ;*************************************
 player_collision
 
@@ -92,12 +92,12 @@ pcol_inc equ *+2
 	if DBG_NO_PLAYER_COL == 1
 	rts
 	endif
-	
+
 	ldu #sp_spare				; add spare sprite to free list
 	ldd sp_free_list
 	std SP_LINK,u
 	stu sp_free_list
-	
+
 	ldu #sp_spare + SP_SIZE		; add 2nd spare sprite to non-collidable list
 	ldd sp_ncol_list
 	std SP_LINK,u
@@ -119,7 +119,7 @@ pcol_inc equ *+2
 	sta death_tmr
 	ldx #SND_EXPL2
 	jmp snd_start_fx
-	
+
 ;*************************************
 
 player_explosion
@@ -160,7 +160,7 @@ move_player
 	if DBG_NO_PLAYER_MOVE
 	rts
 	endif
-	
+
 	ldb player_dir
 	andb #30
 	;ldx #player_speed_table
@@ -183,7 +183,7 @@ move_player
 	ldd 4,u
 	std scroll_x
 	jsr [,u]	;scroll left or right
-	
+
 1	lda scroll_y_ctr
 	bpl 1f
 	inc workload
@@ -220,7 +220,7 @@ player_speed_table
 
 PVSX	equ 2*64/256
 PVSY	equ 2*32/256
-	
+
 player_vel_table
 	fcb  PR4*PVSX,  0			; E
 	fcb  PR3*PVSX, -PR1*PVSY
@@ -251,12 +251,12 @@ player_frame_table
 	fdb sp_player+8*PLYR_SZ, sp_player+10*PLYR_SZ, sp_player+12*PLYR_SZ, sp_player+14*PLYR_SZ
 	fdb sp_player+16*PLYR_SZ, sp_player+14*PLYR_SZ, sp_player+12*PLYR_SZ, sp_player+10*PLYR_SZ
 	fdb sp_player+8*PLYR_SZ, sp_player+6*PLYR_SZ, sp_player+4*PLYR_SZ, sp_player+2*PLYR_SZ
-	
+
 ;**********************************************************
 
 	section "_STRUCT"
 	org 0
-	
+
 PB_FLAG			rmb 1
 PB_XORD			rmb 2
 PB_YORD			rmb 2
@@ -300,6 +300,8 @@ pb_fire
 	leay PB_SIZE,y
 	cmpy #pb_data_end
 	blo 1b
+
+	jsr sp_test_3x8_launch
 	rts
 
 10	ldx #player_vel_table
@@ -339,7 +341,7 @@ pb_fire
 
 	;rts
 
-	
+
 
 pb_update_all
 	ldy #pb_data0
@@ -378,19 +380,19 @@ pb_update_all
 	addb PB_XORD,y 		; x offset
 	adda td_fbuf		; screen base
 	std PB_COL_ADDR,u
-	
+
 	ldb ,x				; get pixel mask
 	stb PB_COL_MASK,u
 	eorb [PB_COL_ADDR,u]	;
 	stb [PB_COL_ADDR,u]		; draw on screen
 	andb ,x					; extract pixel for collision check
 	stb PB_COL_SAVE,u
-	
+
 90	leay PB_SIZE,y
 	leau PB_COL_SIZE,u
 	cmpy #pb_data_end
 	blo 10b
-	
+
 	rts
 
 91	clra

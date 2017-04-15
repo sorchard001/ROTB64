@@ -11,12 +11,12 @@ en_form_count	rmb 1	; counts number of enemies remaining to be in formation
 en_count		rmb 1	; counts number of enemies destroyed
 en_update_ptr	rmb 2
 
-	
+
 	section "CODE"
 
 ; formation spawn rate
 EN_FORM_PERIOD equ 8
-	
+
 en_init_all
 	lda #EN_FORM_PERIOD
 	sta en_spawn_count
@@ -26,8 +26,8 @@ en_init_all
 	;lda #3
 	;sta en_std_max
 	rts
-	
-	
+
+
 en_sprite_init_form
 	ldu sp_free_list	; get next free sprite
 	ldd SP_LINK,u		; remove sprite from free list
@@ -97,13 +97,13 @@ en_spawn
 
 	ldx #SND_ALERT
 	jmp snd_start_fx
-	
-; spawn standard enemy	
+
+; spawn standard enemy
 1	lda en_std_max
 	suba #2
 	cmpa sp_count
 	blo 9f
-	
+
 	;lda sp_count			; enough free sprites?
 	;cmpa #CFG_NUM_SPRITES-2	;
 	;bhi 9f					; not enough - rts
@@ -126,7 +126,7 @@ en_spawn
 	std SP_YORD,u
 
 	dec en_spawn_count
-	
+
 9	rts
 
 
@@ -136,7 +136,7 @@ en_sprite_init_std
 	lda #3
 	;lda [rnd_ptr]
 	;anda #1
-	;inca				; number of updates spent steering towards player 
+	;inca				; number of updates spent steering towards player
 	sta SP_DATA2,u		;
 	ldd SP_LINK,u		; remove sprite from free list
 	std sp_free_list	;
@@ -155,8 +155,8 @@ en_sprite_init_std
 	ldd #sp_std_enemy
 	std SP_DESC,u
 	rts
-	
-	
+
+
 exec_update_enemy
 	ldu en_update_ptr
 	leau SP_SIZE,u
@@ -166,51 +166,16 @@ exec_update_enemy
 1	stu en_update_ptr
 	ldx SP_DESC,u
 	jmp [SP_UPDATE,x]
-	
+
 ;-----------------------------------------------------------
-
-; velocity scale factors
-VSX	equ 64/256
-VSY	equ 32/256
-
-; macro to create a velocity table for 16 directions (22.5 degree steps)
-; parameter defines speed in pixels per frame.
-; first entry is west, subsequent entries counterclockwise.
-; (rotated 180 degrees compared to player directions)
-mac_velocity_table	macro
-
-1	equ 98 * \1
-2	equ 181 * \1
-3	equ 236 * \1
-4	equ 256 * \1
-
-	fdb -4b*VSX,  0
-	fdb -3b*VSX,  1b*VSY
-	fdb -2b*VSX,  2b*VSY
-	fdb -1b*VSX,  3b*VSY
-	fdb  0,       4b*VSY
-	fdb  1b*VSX,  3b*VSY
-	fdb  2b*VSX,  2b*VSY
-	fdb  3b*VSX,  1b*VSY
-	fdb  4b*VSX,  0
-	fdb  3b*VSX, -1b*VSY
-	fdb  2b*VSX, -2b*VSY
-	fdb  1b*VSX, -3b*VSY
-	fdb  0,      -4b*VSY
-	fdb -1b*VSX, -3b*VSY
-	fdb -2b*VSX, -2b*VSY
-	fdb -3b*VSX, -1b*VSY
-	endm
-
-
 
 ; standard enemy velocity table
 std_enemy_vel_table
-	mac_velocity_table 0.8
+	mac_velocity_table_180 0.8
 
 ; formation enemy velocity table
 form_enemy_vel_table
-	mac_velocity_table 1.1
+	mac_velocity_table_180 1.1
 
 
 

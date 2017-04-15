@@ -279,6 +279,7 @@ code_entry
 	include "grfx/chardata_digits.asm"
 	include "grfx/allchars.asm"
 
+	include "vel_table.asm"
 	include "screen.asm"
 	include "player.asm"
 	include "sprite_desc.asm"
@@ -327,6 +328,7 @@ START_DIR	equ 8
 	std scroll_x_inc
 
 	jsr sp_init_all
+	jsr sp_init_3x8
 	jsr pb_init_all
 	jsr en_init_all
 
@@ -368,6 +370,8 @@ MLOOP
 	; copy background to frame buffer
 	jsr td_copybuf
 
+	jsr sp_test_3x8_update
+
 	; draw non-collidable sprites
 	jsr sp_update_non_collidable
 
@@ -381,8 +385,6 @@ MLOOP
 	andb #30
 	ldu b,x
 	stu scroll_x_inc
-
-	jsr sp_test_3x8
 
 	; show position of raster on screen
   if DBG_RASTER
