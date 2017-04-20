@@ -68,9 +68,10 @@ sp_test_3x8_update
 	beq 9f
 
 	ldx #pmiss_vel_table
-	ldb [rnd_ptr]
-	andb #4
-	subb #2
+	;ldb [rnd_ptr]
+	;andb #4
+	;subb #2
+	ldb #1
 	addb SPM_DIR,y
 	stb SPM_DIR,y
 	andb #30
@@ -81,21 +82,21 @@ sp_test_3x8_update
 	ldd 2,x
 	std SPM_YVEL,y
 
-	ldx #sp_draw_3x8_clip_table
+	ldx #sp_update_3x8
 	lda SPM_DIR,y
 	anda #30
 	cmpa #16
 	bls 1f
-	ldx #sp_draw_3x8_clip_table_flip
+	ldx #sp_update_3x8_flip
 	nega
 	adda #32
-1	stx 40f+1
-	ldb #96
+1	ldb #96
 	mul
 	addd #sp_pmissile_img
 	tfr d,u
 
-	bsr sp_update_3x8
+	jmp ,x
+	;bsr sp_update_3x8
 
 9	rts
 
@@ -112,7 +113,7 @@ sp_update_3x8
 	addd scroll_x
 	std SPM_XORD,y
 
-40	ldx #sp_draw_3x8_clip_table	; horizontal clip via lookup
+	ldx #sp_draw_3x8_clip_table	; horizontal clip via lookup
 	lsla
 	ldx a,x
 	stx 50f+1	; save it for later as we will run out of regs
@@ -129,12 +130,40 @@ sp_update_3x8
 	std SPM_YORD,y
 	bpl 1f			; no clip at top
 
-	bra sp_3x8_remove
+	cmpd #-7*32
+	blt sp_3x8_remove	; off top of screen
+
+	inca			; add 8*32 to D
+	lslb
+	rola
+	lslb
+	rola
+	lslb
+	rola
+	sta td_count	; clipped height
+	nega
+	adda #8
+	leau a,u		; offset start of image data (x3)
+	lsla			;
+	leau a,u		;
+	ldx td_fbuf		; sprite starts at top of screen
+	bra 9f			; skip to horiz part of address calc
 
 1	cmpd #(SCRN_HGT-8)*32
 	ble 2f		; no clip at bottom. go to address calc
 
-	bra sp_3x8_remove
+	subd #SCRN_HGT*32
+	bge sp_3x8_remove	; off bottom of screen
+
+	lslb
+	rola
+	lslb
+	rola
+	lslb
+	rola
+	nega
+	sta td_count	; clipped height
+	ldd SPM_YORD,y
 
 2	;ldd SPM_YORD,y	; y offset
 	andb #$e0		; remove sub-pixel bits
@@ -149,6 +178,79 @@ sp_update_3x8
 sp_3x8_remove
 	clr SPM_FLAG,y
 	rts
+
+
+sp_update_3x8_flip
+
+	lda #8
+	sta td_count	; default height
+
+	ldd SPM_XORD,y	; update xord
+	addd SPM_XVEL,y
+	addd scroll_x
+	std SPM_XORD,y
+
+	ldx #sp_draw_3x8_clip_table_flip	; horizontal clip via lookup
+	lsla
+	ldx a,x
+	stx 50f+1	; save it for later as we will run out of regs
+
+	andb #192	; select sprite frame to suit degree of shift required
+	lsrb		; multiply shift value (0-3) by size of sprite data (48)
+	leau b,u	; done here by multiplying in place by 3/4
+	lsrb
+	leau b,u
+
+	ldd SPM_YORD,y	; update y ord
+	addd SPM_YVEL,y
+	addd scroll_y
+	std SPM_YORD,y
+	bpl 1f			; no clip at top
+
+	cmpd #-7*32
+	blt sp_3x8_remove	; off top of screen
+
+	inca			; same as adda #8 after shift
+	lslb
+	rola
+	lslb
+	rola
+	lslb
+	rola
+	sta td_count	; clipped height
+	ldd SPM_YORD,y
+	bra 2f			; go to address calc
+
+1	cmpd #(SCRN_HGT-8)*32
+	ble 2f			; no clip at bottom. go to address calc
+
+	subd #SCRN_HGT*32
+	bge sp_3x8_remove	; off bottom of screen
+
+	lslb
+	rola
+	lslb
+	rola
+	lslb
+	rola
+	nega
+	sta td_count			; clipped height
+	nega
+	adda #8
+	leau a,u				; offset start of image data (x3)
+	lsla					;
+	leau a,u				;
+	ldd #(SCRN_HGT-1)*32	; draw at bottom of screen
+	bra 8f
+
+2	addd #256-32
+	andb #$e0		; remove sub-pixel bits
+8	adda td_fbuf	; screen base
+	tfr d,x
+9	lda SPM_XORD,y	; x offset
+	leax a,x
+
+50	jmp >0		; jump to horizontal clip routine
 
 ;**********************************************************
 
@@ -268,7 +370,6 @@ sp_draw_3w
 ; x points to destination
 ; td_count contains height
 sp_draw_3w_flip
-	leax 256-32,x
 	lsr td_count
 	bcc 1f
 	pulu d		; get two bytes of mask

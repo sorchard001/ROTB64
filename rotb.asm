@@ -7,9 +7,9 @@
 	include "stdmacros.asm"
 
 DBG_RASTER 			equ 1
-;DBG_NO_PLAYER_COL	equ 1
+DBG_NO_PLAYER_COL	equ 1
 ;DBG_NO_PLAYER_MOVE	equ 1
-;DBG_SKIP_INTRO		equ 1
+DBG_SKIP_INTRO		equ 1
 
 ; 64K mode
 CFG_64K				equ 1
