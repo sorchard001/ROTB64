@@ -22,6 +22,7 @@ SPM_SIZE		equ *	; size of data structure
 sp_pmissile_img		rmb 48*4*9
 
 sp_data_pm1		rmb SPM_SIZE
+sp_data_pm2		rmb SPM_SIZE
 
 
 	section "CODE"
@@ -33,14 +34,18 @@ pmiss_vel_table
 sp_init_3x8
 	jsr sp_unpack_3x8
 	clr sp_data_pm1
+	clr sp_data_pm2
 	rts
 
 sp_test_3x8_launch
 	ldy #sp_data_pm1
 	lda SPM_FLAG,y
-	bne 1f
+	beq 1f
+	ldy #sp_data_pm2
+	lda SPM_FLAG,y
+	bne 9f
 
-	inca
+1	inca
 	sta SPM_FLAG,y
 
 	ldd #(PLYR_CTR_X-4)*64
@@ -59,19 +64,23 @@ sp_test_3x8_launch
 	ldd 2,x
 	std SPM_YVEL,y
 
-1	rts
+9	rts
 
 
 sp_test_3x8_update
 	ldy #sp_data_pm1
-	lda SPM_FLAG,y
-	beq 9f
+	bsr sp_test_3x8_update_one
+	ldy #sp_data_pm2
 
+sp_test_3x8_update_one
+	lda SPM_FLAG,y
+	beq 9b
 	ldx #pmiss_vel_table
-	;ldb [rnd_ptr]
-	;andb #4
-	;subb #2
-	ldb #1
+	ldb [rnd_ptr]
+	eorb SPM_XORD,y
+	andb #4
+	subb #2
+	;ldb #0
 	addb SPM_DIR,y
 	stb SPM_DIR,y
 	andb #30
@@ -96,9 +105,6 @@ sp_test_3x8_update
 	tfr d,u
 
 	jmp ,x
-	;bsr sp_update_3x8
-
-9	rts
 
 
 ;**********************************************************
@@ -165,8 +171,7 @@ sp_update_3x8
 	sta td_count	; clipped height
 	ldd SPM_YORD,y
 
-2	;ldd SPM_YORD,y	; y offset
-	andb #$e0		; remove sub-pixel bits
+2	andb #$e0		; remove sub-pixel bits
 	adda td_fbuf	; screen base
 	tfr d,x
 9	lda SPM_XORD,y	; x offset
@@ -179,6 +184,7 @@ sp_3x8_remove
 	clr SPM_FLAG,y
 	rts
 
+;**********************************************************
 
 sp_update_3x8_flip
 
@@ -210,7 +216,7 @@ sp_update_3x8_flip
 	cmpd #-7*32
 	blt sp_3x8_remove	; off top of screen
 
-	inca			; same as adda #8 after shift
+	inca			; add 8x32 to D
 	lslb
 	rola
 	lslb
@@ -243,7 +249,7 @@ sp_update_3x8_flip
 	ldd #(SCRN_HGT-1)*32	; draw at bottom of screen
 	bra 8f
 
-2	addd #256-32
+2	addd #256-32	; adjustment for flipped sprite
 	andb #$e0		; remove sub-pixel bits
 8	adda td_fbuf	; screen base
 	tfr d,x
@@ -255,6 +261,8 @@ sp_update_3x8_flip
 ;**********************************************************
 
 	fdb sp_3x8_remove
+	fdb sp_draw_3w_clip_h1_l
+	fdb sp_draw_3w_clip_h2_l
 sp_draw_3x8_clip_table
 	fdb sp_draw_3w
 	fdb sp_draw_3w
@@ -285,9 +293,15 @@ sp_draw_3x8_clip_table
 	fdb sp_draw_3w
 	fdb sp_draw_3w
 	fdb sp_draw_3w
+	fdb sp_draw_3w
+	fdb sp_draw_3w_clip_h2_r
+	fdb sp_draw_3w_clip_h1_r
 	fdb sp_3x8_remove
 
+	; sp_3x8_remove shared between tables
 
+	fdb sp_draw_3w_clip_h1_l_flip
+	fdb sp_draw_3w_clip_h2_l_flip
 sp_draw_3x8_clip_table_flip
 	fdb sp_draw_3w_flip
 	fdb sp_draw_3w_flip
@@ -318,6 +332,9 @@ sp_draw_3x8_clip_table_flip
 	fdb sp_draw_3w_flip
 	fdb sp_draw_3w_flip
 	fdb sp_draw_3w_flip
+	fdb sp_draw_3w_flip
+	fdb sp_draw_3w_clip_h2_r_flip
+	fdb sp_draw_3w_clip_h1_r_flip
 	fdb sp_3x8_remove
 
 ;**********************************************************
@@ -364,6 +381,43 @@ sp_draw_3w
 	bne 2b
 9	rts
 
+
+; draw clipped sprite 2 bytes wide
+; clip at left
+sp_draw_3w_clip_h2_l
+	leau 1,u
+	leax 1,x
+; clip at right
+sp_draw_3w_clip_h2_r
+1	ldd ,u
+	anda ,x
+	andb 1,x
+	addd 24,u
+	std ,x
+	leau 3,u
+	leax 32,x
+	dec td_count
+	bne 1b
+	rts
+
+; draw clipped sprite 1 byte wide
+; clip at left
+sp_draw_3w_clip_h1_l
+	leau 2,u
+	leax 2,x
+; clip at right
+sp_draw_3w_clip_h1_r
+1	lda ,u
+	anda ,x
+	ora 24,u
+	sta ,x
+	leau 3,u
+	leax 32,x
+	dec td_count
+	bne 1b
+	rts
+
+
 ;**********************************************************
 ; draw 3 byte wide sprite upside down
 ; u points to image data
@@ -408,6 +462,40 @@ sp_draw_3w_flip
 	bne 2b
 9	rts
 
+; draw clipped sprite 2 bytes wide
+; clip at left
+sp_draw_3w_clip_h2_l_flip
+	leau 1,u
+	leax 1,x
+; clip at right
+sp_draw_3w_clip_h2_r_flip
+1	ldd ,u
+	anda ,x
+	andb 1,x
+	addd 24,u
+	std ,x
+	leau 3,u
+	leax -32,x
+	dec td_count
+	bne 1b
+	rts
+
+; draw clipped sprite 1 byte wide
+; clip at left
+sp_draw_3w_clip_h1_l_flip
+	leau 2,u
+	leax 2,x
+; clip at right
+sp_draw_3w_clip_h1_r_flip
+1	lda ,u
+	anda ,x
+	ora 24,u
+	sta ,x
+	leau 3,u
+	leax -32,x
+	dec td_count
+	bne 1b
+	rts
 
 ;**********************************************************
 
