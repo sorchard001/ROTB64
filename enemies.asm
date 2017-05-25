@@ -134,6 +134,7 @@ en_sprite_init_std
 	ldu sp_free_list	; get next free sprite
 	stb SP_DATA,u		; angle
 	lda #3
+	sta SP_ALIVE,u
 	;lda [rnd_ptr]
 	;anda #1
 	;inca				; number of updates spent steering towards player

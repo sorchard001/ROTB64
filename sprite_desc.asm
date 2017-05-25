@@ -8,13 +8,14 @@
 
 	section "_STRUCT"
 	org 0
-	
+
 SP_FRAMEP	rmb 2	; pointer to current frame or 0 if single frame
 SP_FRAME0	rmb 2	; start of frame list / single frame addr / 0 if list plays once
 SP_XORD		rmb 2	; x * 64
 SP_YORD		rmb 2	; y * 32
 SP_XVEL		rmb 2	; x velocity * 64
 SP_YVEL		rmb 2	; y velocity * 32
+SP_ALIVE	rmb 1	; sprite is active
 SP_DESC		rmb 2	; pointer to additional (constant) info
 SP_DATA		rmb 1	; type dependent data
 SP_DATA2	rmb 1	; type dependent data
@@ -39,7 +40,7 @@ SP_DPTR		rmb 2	; pointer to code to run on death (or zero)
 	section "CODE"
 
 ; constant descriptor info for sprites
-	
+
 ;----------------------------------------------------------
 ; standard enemy
 
@@ -100,7 +101,7 @@ sp_std_update
 	lslb
 	rola
 	sta dy
-	
+
 	ldb #4		; determine octant
     lda dy		;
 	bpl 1f		; y >= 0
@@ -147,9 +148,9 @@ sp_rts
 	rts
 
 
-	
+
 ;----------------------------------------------------------
-; formation enemy	
+; formation enemy
 
 sp_form_enemy
 	fdb sp_form_offscreen	; offscreen handler
@@ -157,7 +158,7 @@ sp_form_enemy
 	fcb 2					; score 20
 	fdb sp_rts				; update handler n/a
 	fdb sp_form_hit			; on hit...
-	
+
 	; ...check if player has destroyed whole formation
 sp_form_hit
 	dec en_form_count
@@ -167,7 +168,7 @@ sp_form_hit
 	stx bonus_ptr
 	lda #8
 	sta bonus_tmr
-	
+
 1	jmp sp_dptr_rtn			; return to caller
 
 
@@ -198,9 +199,9 @@ sp_std_explosion
 	fcb 0				; score n/a
 	fdb sp_rts			; update handler n/a
 	fdb sp_dptr_rtn		; destruction code n/a
-	
+
 ;**********************************************************
-	
+
 sp_expl_frames
 	fdb sp_explosion_img
 	fdb sp_explosion_img+1*384

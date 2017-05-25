@@ -370,14 +370,14 @@ MLOOP
 	; copy background to frame buffer
 	jsr td_copybuf
 
-	jsr sp_test_3x8_update
-
 	; draw non-collidable sprites
 	jsr sp_update_non_collidable
 
 	jsr scan_keys
 
 	jsr [mode_routine]
+
+	jsr sp_test_3x8_update
 
 	; update player velocity (affected by key scan & sometimes mode_routine)
 	ldx #player_speed_table

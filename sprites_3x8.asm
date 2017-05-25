@@ -12,7 +12,7 @@ SPM_YORD		rmb 2	; y * 32
 SPM_XVEL		rmb 2	; x velocity * 64
 SPM_YVEL		rmb 2	; y velocity * 32
 SPM_DIR			rmb 1	; direction
-
+SPM_TARGET		rmb 2
 SPM_SIZE		equ *	; size of data structure
 
 
@@ -28,7 +28,7 @@ sp_data_pm2		rmb SPM_SIZE
 	section "CODE"
 
 pmiss_vel_table
-	mac_velocity_table 3
+	mac_velocity_table 2.5
 
 
 sp_init_3x8
@@ -52,17 +52,9 @@ sp_test_3x8_launch
 	std SPM_XORD,y
 	ldd #(PLYR_CTR_Y-3)*32
 	std SPM_YORD,y
-
-	ldx #pmiss_vel_table
 	ldb player_dir
 	andb #30
 	stb SPM_DIR,y
-	lslb
-	abx
-	ldd ,x
-	std SPM_XVEL,y
-	ldd 2,x
-	std SPM_YVEL,y
 
 9	rts
 
@@ -75,15 +67,20 @@ sp_test_3x8_update
 sp_test_3x8_update_one
 	lda SPM_FLAG,y
 	beq 9b
-	ldx #pmiss_vel_table
-	ldb [rnd_ptr]
-	eorb SPM_XORD,y
-	andb #4
-	subb #2
-	;ldb #0
-	addb SPM_DIR,y
-	stb SPM_DIR,y
+
+	ldu #sp_data
+	lda SP_ALIVE,u
+	beq 1f
+
+	jsr pmiss_target
+	jsr pmiss_track
+	bra 5f
+1	jsr pmiss_rndtrack
+
+5	ldb SPM_DIR,y
 	andb #30
+
+	ldx #pmiss_vel_table
 	lslb
 	abx
 	ldd ,x
@@ -106,6 +103,116 @@ sp_test_3x8_update_one
 
 	jmp ,x
 
+;**********************************************************
+
+pmiss_rndtrack
+	ldb [rnd_ptr]
+	eorb SPM_XORD,y
+	andb #4
+	subb #2
+	addb SPM_DIR,y
+	andb #30
+	stb SPM_DIR,y
+	rts
+
+pmiss_track
+	ldu #sp_data
+
+	ldd SP_XORD,u
+	subd SPM_XORD,y
+	lslb
+	rola
+	sta dx
+	ldd SPM_YORD,y
+	subd SP_YORD,u
+	lslb
+	rola
+	lslb
+	rola
+	sta dy
+
+	ldb #2		; determine octant
+    lda dy		;
+	bpl 1f		; y >= 0
+	neg dx		; rotate 180 cw
+	neg dy		;
+	addb #4*4	;
+1	lda dx		;
+	bpl 1f		; x >= 0
+	nega		; rotate 90 cw
+	ldx dy   	; don't care about low byte
+	stx dx    	;  just need to swap dx & dy
+	sta dy		;
+	lda dx		;
+	addb #2*4	;
+1	cmpa dy		;
+	bhs 1f		; x >= y
+	addb #1*4	;
+1
+	; determine which direction to rotate
+	lda #2
+	subb SPM_DIR,y
+	beq 5f
+	bpl 1f
+	nega
+	negb
+1	cmpb #16
+	blo 3f
+	nega
+
+3	adda SPM_DIR,y
+	anda #30
+	sta SPM_DIR,y
+
+5	rts
+
+
+pmiss_target
+	ldd #0
+	pshs u
+	jsr 1f
+	puls u
+	ldd #11*32
+
+1	addd SP_YORD,u
+	cmpd #SCRN_HGT*32
+	bhs 9f			; off top or bottom of screen
+	andb #$e0		; remove sub-pixel bits
+	adda td_fbuf	; screen base
+	tfr d,x
+	ldd SP_XORD,u
+	cmpa #28
+	bhi 9f
+
+	leax a,x
+	lsrb
+	lsrb
+	lsrb
+	andb #24
+	ldu #pmiss_target_table
+	leau b,u
+	ldd ,u
+	anda ,x
+	andb 1,x
+	addd 4,u
+	std ,x
+ 	ldd 2,u
+	anda 2,x
+	andb 3,x
+	addd 6,u
+	std 2,x
+
+9	rts
+
+pmiss_target_table
+	fdb $0000,$00ff
+	fdb $5555,$5500
+	fdb $c000,$003f
+	fdb $1555,$5540
+	fdb $f000,$000f
+	fdb $0555,$5550
+	fdb $fc00,$0003
+	fdb $0155,$5554
 
 ;**********************************************************
 
