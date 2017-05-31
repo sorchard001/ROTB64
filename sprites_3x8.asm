@@ -6,13 +6,14 @@
 	section "_STRUCT"
 	org 0
 
-SPM_FLAG		rmb 1	; sprite valid if non-zero
+SPM_VALID		rmb 1	; sprite valid if non-zero
 SPM_XORD		rmb 2	; x * 64
 SPM_YORD		rmb 2	; y * 32
 SPM_XVEL		rmb 2	; x velocity * 64
 SPM_YVEL		rmb 2	; y velocity * 32
+SPM_ROUTINE		rmb 2	; pointer to update routine
 SPM_DIR			rmb 1	; direction
-SPM_TARGET		rmb 2
+SPM_TARGET		rmb 2	; pointer to target sprite
 SPM_SIZE		equ *	; size of data structure
 
 
@@ -35,18 +36,23 @@ sp_init_3x8
 	jsr sp_unpack_3x8
 	clr sp_data_pm1
 	clr sp_data_pm2
+pmiss_init
+	ldd #pmiss_find_target
+	std sp_data_pm1 + SPM_ROUTINE
+	std sp_data_pm2 + SPM_ROUTINE
 	rts
+
 
 sp_test_3x8_launch
 	ldy #sp_data_pm1
-	lda SPM_FLAG,y
+	lda SPM_VALID,y
 	beq 1f
 	ldy #sp_data_pm2
-	lda SPM_FLAG,y
+	lda SPM_VALID,y
 	bne 9f
 
 1	inca
-	sta SPM_FLAG,y
+	sta SPM_VALID,y
 
 	ldd #(PLYR_CTR_X-4)*64
 	std SPM_XORD,y
@@ -56,56 +62,59 @@ sp_test_3x8_launch
 	andb #30
 	stb SPM_DIR,y
 
+	ldd #pmiss_launch
+	std SPM_ROUTINE,y
+
 9	rts
 
+; ---------------------------------------------------------
 
-sp_test_3x8_update
+pmiss_update
 	ldy #sp_data_pm1
-	bsr sp_test_3x8_update_one
+	jsr [SPM_ROUTINE,y]
 	ldy #sp_data_pm2
+	jmp [SPM_ROUTINE,y]
 
-sp_test_3x8_update_one
-	lda SPM_FLAG,y
-	beq 9b
+; ---------------------------------------------------------
 
+; search for target
+; draw target box
+; launch
+; home in on target or random flight
+
+pmiss_find_target
 	ldu #sp_data
 	lda SP_ALIVE,u
 	beq 1f
+	stu SPM_TARGET,y
+	ldd #pmiss_targeting
+	std SPM_ROUTINE,y
+	rts
+1	clrb
+	std SPM_TARGET,y
+	rts
 
-	jsr pmiss_target
-	jsr pmiss_track
-	bra 5f
-1	jsr pmiss_rndtrack
 
-5	ldb SPM_DIR,y
-	andb #30
+pmiss_targeting
+	ldu SPM_TARGET,y
+	lda SP_ALIVE,u
+	beq 1f
+	jsr pmiss_draw_target
+	rts
 
-	ldx #pmiss_vel_table
-	lslb
-	abx
-	ldd ,x
-	std SPM_XVEL,y
-	ldd 2,x
-	std SPM_YVEL,y
+1	ldd #pmiss_find_target
+	std SPM_ROUTINE,y
+	rts
 
-	ldx #sp_update_3x8
-	lda SPM_DIR,y
-	anda #30
-	cmpa #16
-	bls 1f
-	ldx #sp_update_3x8_flip
-	nega
-	adda #32
-1	ldb #96
-	mul
-	addd #sp_pmissile_img
-	tfr d,u
 
-	jmp ,x
+pmiss_launch
+	ldd #pmiss_flight
+	std SPM_ROUTINE,y
+	rts
 
-;**********************************************************
-
-pmiss_rndtrack
+pmiss_flight_rnd
+	lda SPM_VALID,y
+	beq 5f
 	ldb [rnd_ptr]
 	eorb SPM_XORD,y
 	andb #4
@@ -113,11 +122,59 @@ pmiss_rndtrack
 	addb SPM_DIR,y
 	andb #30
 	stb SPM_DIR,y
+	bra sp_test_3x8_update_one
+
+
+pmiss_flight
+	lda SPM_VALID,y
+	bne 1f
+5	ldd #pmiss_find_target
+	std SPM_ROUTINE,y
 	rts
 
-pmiss_track
-	ldu #sp_data
+1	ldu SPM_TARGET,y
+	lda SP_ALIVE,u
+	bne 1f
+	ldd #pmiss_flight_rnd
+	std SPM_ROUTINE,y
+	bra pmiss_flight_rnd
 
+1	jsr pmiss_track
+	jsr pmiss_draw_target
+	bra sp_test_3x8_update_one
+
+
+sp_test_3x8_update_one
+
+	ldb SPM_DIR,y
+	andb #30
+
+	ldx #pmiss_vel_table
+	abx
+	abx
+	ldu ,x
+	stu SPM_XVEL,y
+	ldu 2,x
+	stu SPM_YVEL,y
+
+	ldx #sp_update_3x8
+	cmpb #16
+	bls 1f
+	ldx #sp_update_3x8_flip
+	negb
+	addb #32
+1	lda #96
+	mul
+	addd #sp_pmissile_img
+	tfr d,u
+
+	jmp ,x
+
+
+;**********************************************************
+
+; steer missile toward target pointed to by u
+pmiss_track
 	ldd SP_XORD,u
 	subd SPM_XORD,y
 	lslb
@@ -167,10 +224,11 @@ pmiss_track
 5	rts
 
 
-pmiss_target
+; draw target markers
+pmiss_draw_target
 	ldd #0
 	pshs u
-	jsr 1f
+	bsr 1f
 	puls u
 	ldd #11*32
 
@@ -213,6 +271,9 @@ pmiss_target_table
 	fdb $0555,$5550
 	fdb $fc00,$0003
 	fdb $0155,$5554
+
+
+;**********************************************************
 
 ;**********************************************************
 
@@ -288,7 +349,7 @@ sp_update_3x8
 
 
 sp_3x8_remove
-	clr SPM_FLAG,y
+	clr SPM_VALID,y
 	rts
 
 ;**********************************************************

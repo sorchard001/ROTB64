@@ -244,23 +244,6 @@ code_entry
 
 	jsr intro
 
-	clra
-	clrb
-	ldx #FBUF0				; clear score area
-1	std FBUF1-FBUF0,x
-	std ,x++
-	cmpx #FBUF0+CFG_TOPOFF
-	blo 1b
-
-	; initialise score display
-	clrb
-	ldu #FBUF0+CFG_TOPOFF+SCORE_POS+6
-	jsr draw_digit
-	clrb
-	ldu #FBUF1+CFG_TOPOFF+SCORE_POS+6
-	jsr draw_digit
-
-
 	jmp START_GAME
 
 
@@ -298,13 +281,29 @@ TD_TILEROWS	equ CFG_TILEROWS	; number of rows of tiles
 
 START_GAME
 
+RESTART_GAME
+
 	ldd #$aaaa				; prefill shift buffers
 	ldx #TD_SBUFF
 1	std ,x++
 	cmpx #TD_SBEND
 	blo 1b
 
-RESTART_GAME
+	clra
+	clrb
+	ldx #FBUF0				; clear score area
+1	std FBUF1-FBUF0,x
+	std ,x++
+	cmpx #FBUF0+CFG_TOPOFF
+	blo 1b
+
+	; initialise score display
+	clrb
+	ldu #FBUF0+CFG_TOPOFF+SCORE_POS+6
+	jsr draw_digit
+	clrb
+	ldu #FBUF1+CFG_TOPOFF+SCORE_POS+6
+	jsr draw_digit
 
 	lda #4
 	sta en_std_max
@@ -377,7 +376,8 @@ MLOOP
 
 	jsr [mode_routine]
 
-	jsr sp_test_3x8_update
+	jsr pmiss_update
+
 
 	; update player velocity (affected by key scan & sometimes mode_routine)
 	ldx #player_speed_table
@@ -548,9 +548,14 @@ fl_mode_death
 	ldy #msg_game_over
 	jsr draw_msg_front
 
+	ldx #10000
 5	jsr scan_keys
 	jsr select_controls
+	beq 2f
+	leax -1,x
 	bne 5b
+
+2	jsr intro_restart
 
 	ldx #colour_set_table_end-1		; initial palette
 	jsr colour_change_x				;

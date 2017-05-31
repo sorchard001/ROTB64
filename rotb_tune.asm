@@ -98,7 +98,7 @@ wrndb adda #0
 	bne 1b
 	rts
 
-	
+
 ; fill region with increasing or decreasing value (1st or 8th octant only)
 ; start address in X, param address in U
 ramp_fill
@@ -108,7 +108,7 @@ ramp_fill
 	deca
 	lsra
 	nega		; initial error term
-	
+
 1	stb ,x+
 	adda ,u		; dy
 	bcc 2f
@@ -242,7 +242,10 @@ n1	equ 7
 
 
 tune0_c1
-
+	; fixme: cyd select_tune should initialise these
+	_setport 0
+	_settp 0
+	_setarp 0,arp0
 1
 	;fcb silence,n1*16
 	;_jump 1b
@@ -312,6 +315,9 @@ arp0	equ *-1
 
 
 tune0_c2
+	_setport 0
+	_settp 0
+	_setarp 0,arp0
 1
 
  if 1
@@ -423,6 +429,9 @@ snare_freq equ 138	;b0;134
 snare_port equ -3	;-10;-2
 
 tune0_c3
+	_setport 0
+	_settp 0
+	_setarp 0,arp0
 1
 	_call drum1
 	_call drum1

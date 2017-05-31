@@ -33,6 +33,10 @@ intro
 	ldy #msg_intro1
 	jsr intr_stringz_slow
 
+intro_restart
+	ldd #(TEXT_YELLOW<<8) + TEXT_BLUE
+	std text_fg
+
 2	ldu td_fbuf
 	leau -CFG_TOPOFF,u		; top of screen
 	ldx #title_screen
@@ -50,6 +54,7 @@ intro
 	anda #127		;
 	cmpa #127		;
 	bne 1b			; key or button pressed
+
 
 	jsr init_cyd_waves
 

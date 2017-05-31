@@ -204,13 +204,14 @@ TEXT_RED	equ $ff
 ; foreground colour changes embedded in string with [-1, colour]
 
 msg_game_over
-	MAC_MSG_POS 5,6
+	MAC_MSG_POS 5,7
 	fcc -1,TEXT_YELLOW,"GAME OVER PUNY HUMAN",0
-
-msg_restart
-	MAC_MSG_POS 2,8
-	fcc "SPACE OR FIRE TO PLAY AGAIN",0
 	fdb 0
+
+;msg_restart
+;	MAC_MSG_POS 2,8
+;	fcc "SPACE OR FIRE TO PLAY AGAIN",0
+;	fdb 0
 
 
 
