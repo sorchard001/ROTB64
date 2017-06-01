@@ -21,7 +21,7 @@ controls_init
 	decb					;
 	bne 1b					;
 	rts
-	
+
 
 scan_keys
 	ldu #$ff00
@@ -33,8 +33,8 @@ scan_keys
 	stb jbuttons
 	incb
 	bpl 2f		; don't scan keys if joystick button pressed
-	
-	; 
+
+	;
 	lda #$fe	; 2
 	comb		; 2 set carry
 	sta 2,u		; 5
@@ -68,9 +68,18 @@ scan_keys
 ;1	sta 2,u
 ;	ldb ,u
 ;	stb ,x+
-;	rola	
+;	rola
 ;	bcs 1b
 ;2	rts
+
+;*************************************
+
+wait_nokeys
+1	lda $ff00		; check for keys/buttons
+	anda #127		;
+	cmpa #127		;
+	bne 1b			; key or button pressed
+	rts
 
 ;*************************************
 
@@ -91,7 +100,7 @@ control_keys
 	bne 1f
 	inc player_dir
 	bra 2f
-	
+
 	; RIGHT
 1	bita keytable+6
 	bne 1f
@@ -128,7 +137,7 @@ control_joy
 	sta ,y
 	lsl ,u
 	rolb
-	
+
 	lda #CFG_FF01_JOY_X		; select right joystick x-axis (also dac sound)
 	sta 1,u					;
 	lda #CFG_JOYSTK_HI
@@ -139,12 +148,12 @@ control_joy
 	sta ,y
 	lsl ,u
 	rolb
-	
+
 	lda olddac				; restore DAC value
 	sta ,y					;
 	lda #CFG_FF23_ENA_SND	; enable sound
 	sta 3,y					;
-	
+
 	ldx #joystk_dir_table
 	lda b,x
 	bmi 5f			; joystick centred - do nothing
@@ -160,7 +169,7 @@ control_joy
 1	addb player_dir	; apply turn
 	andb #$1f		;
 	stb player_dir	;
-5	
+5
 	lda jbuttons
 	bita #1
 	bne 9f
@@ -171,13 +180,13 @@ control_fire
 	jmp pb_fire
 9	rts
 
-; translates packed comparator bits into a direction	
+; translates packed comparator bits into a direction
 joystk_dir_table
 	fcb 12, 8, -1, 4		; NW,  N,   n/a, NE
 	fcb 16, -1, -1, 0		; W,   C,   n/a, E
 	fcb -1, -1, -1, -1		; n/a, n/a, n/a, n/a
 	fcb 20, 24, -1, 28		; SW,  S,   n/a, SE
-	
+
 
 ;*************************************
 

@@ -548,6 +548,8 @@ fl_mode_death
 	ldy #msg_game_over
 	jsr draw_msg_front
 
+	jsr wait_nokeys
+
 	ldx #10000
 5	jsr scan_keys
 	jsr select_controls

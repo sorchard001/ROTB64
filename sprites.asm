@@ -141,10 +141,15 @@ _pb_col_data
 	pb_col_check_mac 7
 	tstb
 	beq sp_update_sp4x12_next	; no hit
+	bsr sp_update_sp4x12_destroy
 
+	ldy SP_LINK,x				; next sprite
+	bne sp_update_sp4x12		;
+	rts
+
+sp_update_sp4x12_destroy
 	clr SP_ALIVE,y
-
-	ldu SP_DESC,y	; point to additional sprite info
+	ldu SP_DESC,y		; point to additional sprite info
 
 	lda score0
 	adda SP_SCORE,u
@@ -178,8 +183,7 @@ sp_dptr_rtn				; return from destruction routine
 	ldd sp_ncol_list	; add sprite to non-collidable list
 	std SP_LINK,y		;
 	sty sp_ncol_list	;
-	ldy SP_LINK,x			; next sprite
-	bne sp_update_sp4x12	;
+
 1	rts
 
 SND_FX_TAB	fdb SND_TONE2,SND_TONE3,SND_TONE4,SND_TONE5

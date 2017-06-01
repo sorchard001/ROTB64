@@ -78,25 +78,28 @@ pmiss_update
 ; ---------------------------------------------------------
 
 ; search for target
-; draw target box
-; launch
-; home in on target or random flight
-
 pmiss_find_target
 	ldu #sp_data
 	lda SP_ALIVE,u
 	beq 1f
-	stu SPM_TARGET,y
+2	stu SPM_TARGET,y
 	ldd #pmiss_targeting
 	std SPM_ROUTINE,y
 	rts
-1	clrb
+
+1	ldu #sp_data+SP_SIZE
+	lda SP_ALIVE,u
+	bne 2b
+
+	clrb
 	std SPM_TARGET,y
 	rts
 
 
+; draw target box
 pmiss_targeting
 	ldu SPM_TARGET,y
+	beq 1f
 	lda SP_ALIVE,u
 	beq 1f
 	jsr pmiss_draw_target
@@ -107,11 +110,14 @@ pmiss_targeting
 	rts
 
 
+; launch
 pmiss_launch
 	ldd #pmiss_flight
 	std SPM_ROUTINE,y
 	rts
 
+
+; home in on target or random flight
 pmiss_flight_rnd
 	lda SPM_VALID,y
 	beq 5f
@@ -122,7 +128,7 @@ pmiss_flight_rnd
 	addb SPM_DIR,y
 	andb #30
 	stb SPM_DIR,y
-	bra sp_test_3x8_update_one
+	bra _pmiss_update_sprite
 
 
 pmiss_flight
@@ -133,18 +139,35 @@ pmiss_flight
 	rts
 
 1	ldu SPM_TARGET,y
+	beq 2f
 	lda SP_ALIVE,u
 	bne 1f
-	ldd #pmiss_flight_rnd
+2	ldd #pmiss_flight_rnd
 	std SPM_ROUTINE,y
 	bra pmiss_flight_rnd
 
+1	jsr pmiss_check_hit
+	bne 1f
+	ldd #pmiss_find_target
+	std SPM_ROUTINE,y
+
+	; outrageous bodge: find previous sprite in list to keep destroy routine happy
+	leay ,u						; current sprite
+	ldu #sp_pcol_list-SP_LINK	; initial 'previous' sprite
+3	cmpy SP_LINK,u
+	beq 2f						; u points to sprite before y
+	ldu SP_LINK,u				; try next sprite
+	bra 3b						;
+
+2	stu sp_prev_ptr				; set up previous pointer for destroy routine
+	jmp sp_update_sp4x12_destroy
+
 1	jsr pmiss_track
 	jsr pmiss_draw_target
-	bra sp_test_3x8_update_one
+	bra _pmiss_update_sprite
 
 
-sp_test_3x8_update_one
+_pmiss_update_sprite
 
 	ldb SPM_DIR,y
 	andb #30
@@ -172,6 +195,22 @@ sp_test_3x8_update_one
 
 
 ;**********************************************************
+
+pmiss_check_hit
+	ldd SP_XORD,u
+	subd SPM_XORD,y
+	cmpd #-4*64
+	blt 1f
+	cmpd #4*64
+	bgt 1f
+	ldd SPM_YORD,y
+	subd SP_YORD,u
+	cmpd #-4*32
+	blt 1f
+	cmpd #4*32
+	bgt 1f
+	clr SPM_VALID,y
+1	rts
 
 ; steer missile toward target pointed to by u
 pmiss_track

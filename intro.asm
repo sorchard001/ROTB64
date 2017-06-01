@@ -49,13 +49,7 @@ intro_restart
 	jsr draw_msg_back
 
 	jsr flip_frame_buffers
-
-1	lda $ff00		; check for keys/buttons
-	anda #127		;
-	cmpa #127		;
-	bne 1b			; key or button pressed
-
-
+	jsr wait_nokeys
 	jsr init_cyd_waves
 
 intro_loop
@@ -181,9 +175,9 @@ msg_title
 
 msg_intro1
 	MAC_MSG_POS 1,14
-	fcc -1,TEXT_YELLOW,"WAY DOWN DEEP",0
-	MAC_MSG_POS 1,15
-	fcc "IN THE MIDDLE OF THE CONGO...",0
+	fcc -1,TEXT_YELLOW,"CAMBRIDGE GEEKEND EDITION",0
+	;MAC_MSG_POS 1,15
+	;fcc "",0
 	fdb 0
 
 
