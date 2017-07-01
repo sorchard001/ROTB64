@@ -40,6 +40,7 @@ en_sprite_init_form
 	std SP_XVEL,u
 	ldd 2,y
 	std SP_YVEL,u
+	clr SP_MISFLG,u
 
 	ldd #sp_flap_frames
 	std SP_FRAMEP,u
@@ -133,8 +134,9 @@ en_spawn
 en_sprite_init_std
 	ldu sp_free_list	; get next free sprite
 	stb SP_DATA,u		; angle
+	negb
+	stb SP_MISFLG,u		; trackable
 	lda #3
-	sta SP_ALIVE,u
 	;lda [rnd_ptr]
 	;anda #1
 	;inca				; number of updates spent steering towards player

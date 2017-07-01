@@ -50,7 +50,7 @@ sp_init_all
 	std sp_ncol_list
 	ldu #sp_std_explosion	; default descriptor
 1	stu SP_DESC,x
-	sta SP_ALIVE,x
+	sta SP_MISFLG,x
 	leax SP_SIZE,x
 	stx SP_LINK-SP_SIZE,x
 	cmpx #sp_data_end
@@ -148,7 +148,7 @@ _pb_col_data
 	rts
 
 sp_update_sp4x12_destroy
-	clr SP_ALIVE,y
+	clr SP_MISFLG,y
 	ldu SP_DESC,y		; point to additional sprite info
 
 	lda score0
@@ -279,7 +279,7 @@ sp_clip_addr
 	jmp >0		; jump to horizontal clip routine
 
 sp_remove
-	clr SP_ALIVE,y
+	clr SP_MISFLG,y
 	dec sp_count		; reduce sprite count
 	ldu sp_prev_ptr		; remove sprite from current list
 	ldd SP_LINK,y		;

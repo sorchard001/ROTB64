@@ -195,9 +195,12 @@ move_player
 
 ;*************************************
 
-PR1		equ 48  ;98
-PR2		equ 90  ;181
-PR3		equ 120 ;236
+PR1		equ 49
+PR2		equ 91
+PR3		equ 118
+;PR1		equ 48  ;98
+;PR2		equ 90  ;181
+;PR3		equ 120 ;236
 PR4		equ 128 ;256
 
 player_speed_table

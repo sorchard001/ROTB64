@@ -15,7 +15,7 @@ SP_XORD		rmb 2	; x * 64
 SP_YORD		rmb 2	; y * 32
 SP_XVEL		rmb 2	; x velocity * 64
 SP_YVEL		rmb 2	; y velocity * 32
-SP_ALIVE	rmb 1	; sprite is active
+SP_MISFLG	rmb 1	; missile flag: 0 = not-trackable, -ve = trackable, +ve = tracking
 SP_DESC		rmb 2	; pointer to additional (constant) info
 SP_DATA		rmb 1	; type dependent data
 SP_DATA2	rmb 1	; type dependent data

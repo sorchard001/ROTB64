@@ -14,6 +14,7 @@ SPM_YVEL		rmb 2	; y velocity * 32
 SPM_ROUTINE		rmb 2	; pointer to update routine
 SPM_DIR			rmb 1	; direction
 SPM_TARGET		rmb 2	; pointer to target sprite
+SPM_TARGET_OFF	rmb 2	; target marker offset
 SPM_SIZE		equ *	; size of data structure
 
 
@@ -34,10 +35,10 @@ pmiss_vel_table
 
 sp_init_3x8
 	jsr sp_unpack_3x8
-	clr sp_data_pm1
+	clr sp_data_pm1		; clear SPM_VALID flags
 	clr sp_data_pm2
-pmiss_init
-	ldd #pmiss_find_target
+;pmiss_init
+	ldd #pmr_init_target
 	std sp_data_pm1 + SPM_ROUTINE
 	std sp_data_pm2 + SPM_ROUTINE
 	rts
@@ -62,7 +63,7 @@ sp_test_3x8_launch
 	andb #30
 	stb SPM_DIR,y
 
-	ldd #pmiss_launch
+	ldd #pmr_launch
 	std SPM_ROUTINE,y
 
 9	rts
@@ -76,49 +77,73 @@ pmiss_update
 	jmp [SPM_ROUTINE,y]
 
 ; ---------------------------------------------------------
+; missile behaviour routines
+
+; initialise targetting
+pmr_init_target
+	ldd #sp_data
+	std SPM_TARGET,y
+	ldd #pmr_find_target
+	std SPM_ROUTINE,y
+	rts
 
 ; search for target
-pmiss_find_target
-	ldu #sp_data
-	lda SP_ALIVE,u
-	beq 1f
-2	stu SPM_TARGET,y
-	ldd #pmiss_targeting
-	std SPM_ROUTINE,y
-	rts
-
-1	ldu #sp_data+SP_SIZE
-	lda SP_ALIVE,u
-	bne 2b
-
-	clrb
-	std SPM_TARGET,y
-	rts
-
-
-; draw target box
-pmiss_targeting
+pmr_find_target
 	ldu SPM_TARGET,y
-	beq 1f
-	lda SP_ALIVE,u
-	beq 1f
-	jsr pmiss_draw_target
+	lda SP_MISFLG,u
+	bmi 2f
+	leax SP_SIZE,u
+	cmpx #sp_data_end
+	blo 1f
+	ldx #sp_data
+1	stx SPM_TARGET,y
 	rts
 
-1	ldd #pmiss_find_target
+2	com SP_MISFLG,u		; now tracking target
+	stu SPM_TARGET,y
+	ldd #pmr_targeting
+	std SPM_ROUTINE,y
+	ldd #-12*32
+	std SPM_TARGET_OFF,y
+	rts
+
+
+; draw target box closing in
+pmr_targeting
+	ldu SPM_TARGET,y
+	lda SP_MISFLG,u
+	beq 1f
+	jsr pmiss_draw_target_locking
+	ldd SPM_TARGET_OFF,y
+	addd #32
+	bpl 2f
+	std SPM_TARGET_OFF,y
+	rts
+
+1	ldd #pmr_find_target
 	std SPM_ROUTINE,y
 	rts
+
+2	ldd #pmr_locked
+	std SPM_ROUTINE,y
+	rts
+
+pmr_locked
+	ldu SPM_TARGET,y
+	lda SP_MISFLG,u
+	beq 1b
+	jmp pmiss_draw_target_locked
 
 
 ; launch
-pmiss_launch
-	ldd #pmiss_flight
+pmr_launch
+	ldd #pmr_flight
 	std SPM_ROUTINE,y
 	rts
 
 
 ; home in on target or random flight
-pmiss_flight_rnd
+pmr_flight_rnd
 	lda SPM_VALID,y
 	beq 5f
 	ldb [rnd_ptr]
@@ -131,24 +156,23 @@ pmiss_flight_rnd
 	bra _pmiss_update_sprite
 
 
-pmiss_flight
+pmr_flight
 	lda SPM_VALID,y
 	bne 1f
-5	ldd #pmiss_find_target
+5	ldd #pmr_find_target
 	std SPM_ROUTINE,y
 	rts
 
 1	ldu SPM_TARGET,y
-	beq 2f
-	lda SP_ALIVE,u
+	lda SP_MISFLG,u
 	bne 1f
-2	ldd #pmiss_flight_rnd
+2	ldd #pmr_flight_rnd
 	std SPM_ROUTINE,y
-	bra pmiss_flight_rnd
+	bra pmr_flight_rnd
 
 1	jsr pmiss_check_hit
 	bne 1f
-	ldd #pmiss_find_target
+	ldd #pmr_find_target
 	std SPM_ROUTINE,y
 
 	; outrageous bodge: find previous sprite in list to keep destroy routine happy
@@ -163,7 +187,7 @@ pmiss_flight
 	jmp sp_update_sp4x12_destroy
 
 1	jsr pmiss_track
-	jsr pmiss_draw_target
+	jsr pmiss_draw_target_locked
 	bra _pmiss_update_sprite
 
 
@@ -263,12 +287,24 @@ pmiss_track
 5	rts
 
 
-; draw target markers
-pmiss_draw_target
-	ldd #0
-	pshs u
+; draw target markers closing in
+; y - missile
+; u - target sprite
+pmiss_draw_target_locking
+	ldd SPM_TARGET_OFF,y
 	bsr 1f
-	puls u
+	ldu SPM_TARGET,y	; restore u
+	ldd #11*32
+	subd SPM_TARGET_OFF,y
+	bra 1f
+
+; draw target markers locked
+; y - missile
+; u - target sprite
+pmiss_draw_target_locked
+	ldd #0
+	bsr 1f
+	ldu SPM_TARGET,y	; restore u
 	ldd #11*32
 
 1	addd SP_YORD,u
@@ -279,7 +315,7 @@ pmiss_draw_target
 	tfr d,x
 	ldd SP_XORD,u
 	cmpa #28
-	bhi 9f
+	bhi 9f			; off left or right of screen
 
 	leax a,x
 	lsrb
