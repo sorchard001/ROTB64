@@ -9,12 +9,13 @@
 	section "_STRUCT"
 	org 0
 
-SP_FRAMEP	rmb 2	; pointer to current frame or 0 if single frame
-SP_FRAME0	rmb 2	; start of frame list / single frame addr / 0 if list plays once
 SP_XORD		rmb 2	; x * 64
 SP_YORD		rmb 2	; y * 32
 SP_XVEL		rmb 2	; x velocity * 64
 SP_YVEL		rmb 2	; y velocity * 32
+
+SP_FRAMEP	rmb 2	; pointer to current frame or 0 if single frame
+SP_FRAME0	rmb 2	; start of frame list / single frame addr / 0 if list plays once
 SP_MISFLG	rmb 1	; missile flag: 0 = not-trackable, -ve = trackable, +ve = tracking
 SP_DESC		rmb 2	; pointer to additional (constant) info
 SP_DATA		rmb 1	; type dependent data
@@ -199,6 +200,74 @@ sp_std_explosion
 	fcb 0				; score n/a
 	fdb sp_rts			; update handler n/a
 	fdb sp_dptr_rtn		; destruction code n/a
+
+;----------------------------------------------------------
+; boss
+
+sp_boss_desc
+	fdb sp_remove		; offscreen handler
+	fdb 0				; explosion sound n/a
+	fcb 0				; score n/a
+	fdb sp_rts			; update handler n/a
+	fdb sp_form_hit		; destruction code n/a
+
+sp_boss_init
+	bsr sp_boss_init_helper
+	ldd #64*64
+	std SP_XORD,u
+	ldd #48*32
+	std SP_YORD,u
+	ldd #sp_boss_img
+	std SP_FRAME0,u
+
+	bsr sp_boss_init_helper
+	ldd #(64+12)*64
+	std SP_XORD,u
+	ldd #48*32
+	std SP_YORD,u
+	ldd #sp_boss_img+96*4
+	std SP_FRAME0,u
+
+	bsr sp_boss_init_helper
+	ldd #64*64
+	std SP_XORD,u
+	ldd #(48+12)*32
+	std SP_YORD,u
+	ldd #sp_boss_img+96*4*2
+	std SP_FRAME0,u
+
+	bsr sp_boss_init_helper
+	ldd #(64+12)*64
+	std SP_XORD,u
+	ldd #(48+12)*32
+	std SP_YORD,u
+	ldd #sp_boss_img+96*4*3
+	std SP_FRAME0,u
+
+	rts
+
+
+sp_boss_init_helper
+	ldu sp_free_list	; get next free sprite
+	ldd SP_LINK,u		; remove sprite from free list
+	std sp_free_list	;
+	ldd sp_pcol_list	; add sprite to collidable list
+	std SP_LINK,u		;
+	stu sp_pcol_list	;
+	inc sp_count
+	ldd #48
+	std SP_XVEL,u
+	ldd #0
+	std SP_YVEL,u
+	clr SP_MISFLG,u
+
+	ldd #0
+	std SP_FRAMEP,u
+
+	ldd #sp_boss_desc
+	std SP_DESC,u
+	rts
+
 
 ;**********************************************************
 

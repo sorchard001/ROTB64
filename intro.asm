@@ -175,7 +175,7 @@ msg_title
 
 msg_intro1
 	MAC_MSG_POS 1,14
-	fcc -1,TEXT_YELLOW,"CAMBRIDGE GEEKEND EDITION",0
+	fcc -1,TEXT_YELLOW,"I WISH I COULD DRAW",0
 	;MAC_MSG_POS 1,15
 	;fcc "",0
 	fdb 0

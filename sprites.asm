@@ -35,6 +35,7 @@ sp_spare	rmb SP_SIZE * 2
 sp_test_img			rmb 96*4
 sp_explosion_img	rmb 96*4*4
 sp_flap_img			rmb 96*4*4
+sp_boss_img			rmb 96*4*4
 
 ;**********************************************************
 
@@ -478,6 +479,13 @@ sp_unpack
 
 	ldu #sp_flap_2
 	ldy #sp_flap_img
+	bsr sp_copy_3x12_to_4x12
+	bsr sp_copy_3x12_to_4x12
+	bsr sp_copy_3x12_to_4x12
+	bsr sp_copy_3x12_to_4x12
+
+	ldu #sp_boss
+	ldy #sp_boss_img
 	bsr sp_copy_3x12_to_4x12
 	bsr sp_copy_3x12_to_4x12
 	bsr sp_copy_3x12_to_4x12

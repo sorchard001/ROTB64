@@ -74,6 +74,7 @@ en_spawn
 	sta en_spawn_count
 	lda #4
 	sta en_form_count
+	jmp sp_boss_init
 
 	bsr en_sprite_init_form
 	ldd -8,x
