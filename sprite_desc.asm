@@ -58,7 +58,7 @@ sp_std_hit
 	lda en_count
 	cmpa #50
 	blo 1f
-	ldx #sp_warp
+	ldx #sp_start_boss
 	cmpx on_no_sprites
 	beq 1f
 	stx on_no_sprites
@@ -67,6 +67,14 @@ sp_std_hit
 	ldx #SND_ALERT2
 	jsr snd_start_fx_force
 1	jmp sp_dptr_rtn			; return to caller
+
+
+sp_start_boss
+	ldd #fl_mode_boss
+	std mode_routine
+	ldx #sp_warp
+	stx on_no_sprites
+	jmp sp_boss_init
 
 sp_warp
 	ldd #fl_mode_warp_out
@@ -205,41 +213,54 @@ sp_std_explosion
 ; boss
 
 sp_boss_desc
-	fdb sp_remove		; offscreen handler
-	fdb 0				; explosion sound n/a
-	fcb 0				; score n/a
-	fdb sp_rts			; update handler n/a
-	fdb sp_form_hit		; destruction code n/a
+	fdb sp_boss_offscreen	; offscreen handler
+	fdb 0					; explosion sound n/a
+	fcb 0					; score n/a
+	fdb sp_rts				; update handler n/a
+	fdb sp_dptr_rtn			; destruction code n/a
 
 sp_boss_init
+	ldb player_dir
+	addb #16
+	andb #30
+	lslb
+	ldy #sp_boss_vel_table	; get velocity
+	leay b,y				;
+	ldx #boss_coords
+	abx
+
 	bsr sp_boss_init_helper
-	ldd #64*64
+	ldd ,x
 	std SP_XORD,u
-	ldd #48*32
+	ldd 2,x
 	std SP_YORD,u
 	ldd #sp_boss_img
 	std SP_FRAME0,u
 
 	bsr sp_boss_init_helper
-	ldd #(64+12)*64
+	ldd ,x
+	adda #3	;addd #12*64
 	std SP_XORD,u
-	ldd #48*32
+	ldd 2,x
 	std SP_YORD,u
 	ldd #sp_boss_img+96*4
 	std SP_FRAME0,u
 
 	bsr sp_boss_init_helper
-	ldd #64*64
+	ldd ,x
 	std SP_XORD,u
-	ldd #(48+12)*32
+	ldd 2,x
+	addd #12*32
 	std SP_YORD,u
 	ldd #sp_boss_img+96*4*2
 	std SP_FRAME0,u
 
 	bsr sp_boss_init_helper
-	ldd #(64+12)*64
+	ldd ,x
+	adda #3	;addd #12*64
 	std SP_XORD,u
-	ldd #(48+12)*32
+	ldd 2,x
+	addd #12*32
 	std SP_YORD,u
 	ldd #sp_boss_img+96*4*3
 	std SP_FRAME0,u
@@ -255,9 +276,9 @@ sp_boss_init_helper
 	std SP_LINK,u		;
 	stu sp_pcol_list	;
 	inc sp_count
-	ldd #48
+	ldd ,y
 	std SP_XVEL,u
-	ldd #0
+	ldd 2,y
 	std SP_YVEL,u
 	clr SP_MISFLG,u
 
@@ -267,6 +288,26 @@ sp_boss_init_helper
 	ldd #sp_boss_desc
 	std SP_DESC,u
 	rts
+
+
+; boss off-screen handler
+sp_boss_offscreen
+	lda SP_XORD,y
+	cmpa #-6
+	blt 1f
+	cmpa #35
+	bge 1f
+	ldd SP_YORD,y
+	cmpd #-11*32-24*32
+	blt 1f
+	cmpd #(SCRN_HGT*32+24*32)
+	bge 1f
+	jmp sp_update_sp4x12_next
+1	jmp sp_remove
+
+; boss velocity table
+sp_boss_vel_table
+	mac_velocity_table_180 1.5
 
 
 ;**********************************************************

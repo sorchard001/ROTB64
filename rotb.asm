@@ -476,6 +476,25 @@ fl_mode_normal
 1	rts
 
 
+fl_mode_boss
+	jsr draw_player
+	jsr pb_update_all
+	jsr sp_update_collidable
+	jsr player_collision
+	jsr [control_set]
+
+	; 5
+1	lda #1
+	bita keytable+5
+	bne 1f
+	ldd #fl_mode_warp_out
+	std mode_routine
+	ldx #SND_WARPOUT
+	jsr snd_start_fx_force
+
+1	rts
+
+
 fl_mode_warp_out
 	; player ship
 	jsr draw_player
