@@ -25,6 +25,12 @@ sp_data_pm1		rmb SPM_SIZE
 sp_data_pm2		rmb SPM_SIZE
 
 
+	section "DPVARS"
+
+missile_offset_x	rmb 2	; offsets missile target coords
+missile_offset_y	rmb 2	; (e.g. to place target in centre of boss)
+
+
 	section "CODE"
 
 pmiss_vel_table
@@ -96,8 +102,8 @@ pmr_find_target
 1	stx SPM_TARGET,y
 	rts
 
-2	com SP_MISFLG,u		; now tracking target
-	stu SPM_TARGET,y
+2	neg SP_MISFLG,u		; now tracking target
+	;stu SPM_TARGET,y
 	ldd #pmr_targeting
 	std SPM_ROUTINE,y
 	ldd #-12*32
@@ -171,21 +177,14 @@ pmr_flight
 	bne 1f
 	ldd #pmr_find_target
 	std SPM_ROUTINE,y
-
-	; outrageous bodge: find previous sprite in list to keep destroy routine happy
-	leay ,u						; current sprite
-	ldu #sp_pcol_list-SP_LINK	; initial 'previous' sprite
-3	cmpy SP_LINK,u
-	beq 2f						; u points to sprite before y
-	ldu SP_LINK,u				; try next sprite
-	bra 3b						;
-
-2	stu sp_prev_ptr				; set up previous pointer for destroy routine
-	jmp sp_update_sp4x12_destroy
+	inc SP_COLFLG,u		; set collision flag
+	ldx SP_DESC,u
+	jmp [SP_MISCODE,x]
+	;rts
 
 1	jsr pmiss_track
 	jsr pmiss_draw_target_locked
-	bra _pmiss_update_sprite
+;	bra _pmiss_update_sprite
 
 
 _pmiss_update_sprite
@@ -217,18 +216,21 @@ _pmiss_update_sprite
 
 ;**********************************************************
 
+; check for hit with target pointed to by u
 pmiss_check_hit
-	ldd SP_XORD,u
-	subd SP_XORD,y
+	ldd SP_XORD,y
+	subd SP_XORD,u
+	subd missile_offset_x
 	cmpd #-4*64
 	blt 1f
-	cmpd #4*64
+	cmpd #8*64
 	bgt 1f
 	ldd SP_YORD,y
 	subd SP_YORD,u
+	subd missile_offset_y
 	cmpd #-4*32
 	blt 1f
-	cmpd #4*32
+	cmpd #8*32
 	bgt 1f
 	clr SPM_VALID,y
 1	rts
@@ -236,12 +238,16 @@ pmiss_check_hit
 ; steer missile toward target pointed to by u
 pmiss_track
 	ldd SP_XORD,u
+	addd missile_offset_x
+	addd #2				; adjust for difference in sprite size
 	subd SP_XORD,y
 	lslb
 	rola
 	sta dx
 	ldd SP_YORD,y
 	subd SP_YORD,u
+	subd missile_offset_y
+	subd #2				; adjust for difference in sprite size
 	lslb
 	rola
 	lslb
@@ -305,12 +311,14 @@ pmiss_draw_target_locked
 	ldd #11*32
 
 1	addd SP_YORD,u
+	addd missile_offset_y
 	cmpd #SCRN_HGT*32
 	bhs 9f			; off top or bottom of screen
 	andb #$e0		; remove sub-pixel bits
 	adda td_fbuf	; screen base
 	tfr d,x
 	ldd SP_XORD,u
+	addd missile_offset_x
 	cmpa #28
 	bhi 9f			; off left or right of screen
 

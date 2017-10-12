@@ -9,8 +9,8 @@ sp_free_list	rmb 2	; ptr to list of unused sprites
 sp_pcol_list	rmb 2	; ptr to list of collidable sprites
 sp_ncol_list	rmb 2	; ptr to list of non-collidable sprites
 sp_prev_ptr		rmb 2	; points to previous sprite in current list
-sp_col_enable	rmb 1	; enables player bullet collision check during sprite update
 sp_count		rmb 1	; number of active sprites
+sp_col_check	rmb 2	; pointer to collision check code (or bypass)
 
 kill_count		rmb 1	; temporary for demo sound fx
 
@@ -32,9 +32,9 @@ sp_spare	rmb SP_SIZE * 2
 
 ; mask + image requires 96 bytes (4x12 sprite)
 
-sp_test_img			rmb 96*4
+sp_std_img			rmb 96*4
 sp_explosion_img	rmb 96*4*4
-sp_flap_img			rmb 96*4*4
+sp_form_img			rmb 96*4*4
 sp_boss_img			rmb 96*4*4
 
 ;**********************************************************
@@ -65,16 +65,21 @@ sp_init_all
 
 ; update all collidable sprites (e.g. enemies)
 sp_update_collidable
-	inc sp_col_enable			; enable player bullet collision detect
-	ldy #sp_pcol_list-SP_LINK	; initial 'previous' sprite
+	ldd #sp_update_sp4x12_check_col		; enable player bullet collision detect
+	std sp_col_check					;
+	ldy #sp_pcol_list-SP_LINK			; initial 'previous' sprite
 	jmp sp_update_sp4x12_next
 
 ; update all non-collidable sprites (e.g. explosions)
 sp_update_non_collidable
-	clr sp_col_enable			; disable player bullet collision detect
-	ldy #sp_ncol_list-SP_LINK	; initial 'previous' sprite
+	ldd #sp_update_sp4x12_next		; disable player bullet collision detect
+	std sp_col_check				;
+	ldy #sp_ncol_list-SP_LINK		; initial 'previous' sprite
 	jmp sp_update_sp4x12_next
 
+; nb. initial 'previous' sprite comes into play if the first sprite is
+; removed from list. The address of the next sprite gets stored in SP_LINK
+; of previous sprite which in this case would be the list head pointer.
 
 
 SCRN_HGT equ TD_TILEROWS*8
@@ -128,9 +133,9 @@ PB_COL_NEXT equ 9-1
 PB_COL_SIZE equ 9
 
 sp_update_sp4x12_check_col
-	lda sp_col_enable
-	lbeq sp_update_sp4x12_next
-	clrb				; clear collision flag
+	ldb SP_COLFLG,y		; check if collision already flagged
+	bne 1f
+	;clrb				; clear collision flag
 _pb_col_data
 	pb_col_check_mac 0
 	pb_col_check_mac 1
@@ -142,18 +147,20 @@ _pb_col_data
 	pb_col_check_mac 7
 	tstb
 	beq sp_update_sp4x12_next	; no hit
-	bsr sp_update_sp4x12_destroy
 
+1	ldu SP_DESC,y				; point to additional sprite info
+	lda SP_SCORE,u
+	beq sp_update_sp4x12_next	; no score means don't destroy sprite
+	bsr sp_update_sp4x12_destroy_b
 	ldy SP_LINK,x				; next sprite
 	bne sp_update_sp4x12		;
 	rts
 
-sp_update_sp4x12_destroy
-	clr SP_MISFLG,y
-	ldu SP_DESC,y		; point to additional sprite info
-
-	lda score0
-	adda SP_SCORE,u
+;sp_update_sp4x12_destroy
+;	ldu SP_DESC,y		; point to additional sprite info
+;	lda SP_SCORE,u
+sp_update_sp4x12_destroy_b
+	adda score0
 	daa
 	sta score0
 	lda score1
@@ -165,13 +172,13 @@ sp_update_sp4x12_destroy
 	daa
 	sta score2
 
+	clr SP_MISFLG,y
+
 	ldx SP_EXPL,u			; explosion sound effect
 1	jsr snd_start_fx		;
 
 	ldd #sp_expl_frames		; turn sprite into explosion
 	std SP_FRAMEP,y
-	ldd #0
-	std SP_FRAME0,y
 	ldd #sp_std_explosion
 	std SP_DESC,y
 
@@ -195,19 +202,16 @@ sp_update_sp4x12_next
 	ldy SP_LINK,y
 	beq 1b				; end of list - rts
 
-sp_update_sp4x12
-	ldx SP_FRAMEP,y		; get current frame (or 0 if single image)
-	beq 1f				; no frame list, just single image
-	ldu ,x++			; get next image in list
-	bne 3f				; not end of list
-	ldx SP_FRAME0,y		; get start of list (or 0 if no repeat)
-	beq sp_remove		; no repeat - remove sprite
-	ldu ,x++			; get 1st image
-3	stx SP_FRAMEP,y		; update list pointer
-	bra 2f
 
-1	ldu SP_FRAME0,y
-2
+sp_update_sp4x12
+	ldx SP_FRAMEP,y		; get frame pointer
+	ldu ,x++			; get frame
+	bne 1f				; non-zero: frame OK to use
+	ldx ,x				; get repeat address
+	beq sp_remove		; no repeat - remove sprite
+	ldu ,x++			; get frame from repeat address
+1	stx SP_FRAMEP,y		; update frame pointer
+
 	lda #12			; default sprite height
 	sta td_count
 
@@ -401,7 +405,7 @@ sp_draw_sp4x12
 	leax 64,x
 	dec td_count
 	bne 2b
-9	jmp sp_update_sp4x12_check_col
+9	jmp [sp_col_check]
 
 
 ; draw clipped sprite 3 bytes wide
@@ -423,7 +427,7 @@ sp_draw_sp4x12_clip_h3_r
 	leax 32,x
 	dec td_count
 	bne 1b
-	jmp sp_update_sp4x12_check_col
+	jmp [sp_col_check]
 
 
 ; draw clipped sprite 2 bytes wide
@@ -442,7 +446,7 @@ sp_draw_sp4x12_clip_h2_r
 	leax 32,x
 	dec td_count
 	bne 1b
-	jmp sp_update_sp4x12_check_col
+	jmp [sp_col_check]
 
 
 ; draw clipped sprite 1 byte wide
@@ -460,14 +464,14 @@ sp_draw_sp4x12_clip_h1_r
 	leax 32,x
 	dec td_count
 	bne 1b
-	jmp sp_update_sp4x12_check_col
+	jmp [sp_col_check]
 
 ;**********************************************************
 
 sp_unpack
 
 	ldu #sp_test
-	ldy #sp_test_img
+	ldy #sp_std_img
 	bsr sp_copy_3x12_to_4x12
 
 	ldu #sp_explosion
@@ -478,7 +482,7 @@ sp_unpack
 	bsr sp_copy_3x12_to_4x12
 
 	ldu #sp_flap_2
-	ldy #sp_flap_img
+	ldy #sp_form_img
 	bsr sp_copy_3x12_to_4x12
 	bsr sp_copy_3x12_to_4x12
 	bsr sp_copy_3x12_to_4x12

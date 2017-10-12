@@ -14,9 +14,9 @@ SP_YORD		rmb 2	; y * 32
 SP_XVEL		rmb 2	; x velocity * 64
 SP_YVEL		rmb 2	; y velocity * 32
 
-SP_FRAMEP	rmb 2	; pointer to current frame or 0 if single frame
-SP_FRAME0	rmb 2	; start of frame list / single frame addr / 0 if list plays once
+SP_FRAMEP	rmb 2	; pointer to current frame
 SP_MISFLG	rmb 1	; missile flag: 0 = not-trackable, -ve = trackable, +ve = tracking
+SP_COLFLG	rmb 1
 SP_DESC		rmb 2	; pointer to additional (constant) info
 SP_DATA		rmb 1	; type dependent data
 SP_DATA2	rmb 1	; type dependent data
@@ -34,7 +34,8 @@ SP_OFFSCR	rmb 2	; pointer to offscreen handler
 SP_EXPL		rmb 2	; pointer to explosion sound effect
 SP_SCORE	rmb 1	; score
 SP_UPDATE	rmb 2	; pointer to update handler
-SP_DPTR		rmb 2	; pointer to code to run on death (or zero)
+SP_DPTR		rmb 2	; pointer to code to run on death
+SP_MISCODE	rmb 2	; pointer to code to run on missile hit
 
 ;**********************************************************
 
@@ -50,9 +51,10 @@ sp_std_enemy
 	fdb SND_EXPL_S		; explosion sound
 	fcb 1				; score 10
 	fdb sp_std_update
-	fdb sp_std_hit		; on hit...
+	fdb sp_std_hit		; on destroy
+	fdb sp_rts			; missile hit n/a
 
-	; ...check if player has destroyed enough enemies
+	; on hit check if player has destroyed enough enemies
 sp_std_hit
 	inc en_count
 	lda en_count
@@ -62,8 +64,8 @@ sp_std_hit
 	cmpx on_no_sprites
 	beq 1f
 	stx on_no_sprites
-	ldd #exec_table_nospawn
-	std exec_ptr
+	ldd #task_table_nospawn
+	std task_ptr
 	ldx #SND_ALERT2
 	jsr snd_start_fx_force
 1	jmp sp_dptr_rtn			; return to caller
@@ -72,8 +74,15 @@ sp_std_hit
 sp_start_boss
 	ldd #fl_mode_boss
 	std mode_routine
+	ldd #task_table_boss
+	std task_ptr
 	ldx #sp_warp
 	stx on_no_sprites
+	clr boss_hit
+	ldd #-64*6
+	std missile_offset_x
+	ldd #-32*6
+	std missile_offset_y
 	jmp sp_boss_init
 
 sp_warp
@@ -166,9 +175,10 @@ sp_form_enemy
 	fdb SND_EXPL_F			; explosion sound
 	fcb 2					; score 20
 	fdb sp_rts				; update handler n/a
-	fdb sp_form_hit			; on hit...
+	fdb sp_form_hit			; on destroy
+	fdb sp_rts				; missile hit n/a
 
-	; ...check if player has destroyed whole formation
+	; on hit check if player has destroyed whole formation
 sp_form_hit
 	dec en_form_count
 	bne 1f
@@ -208,16 +218,18 @@ sp_std_explosion
 	fcb 0				; score n/a
 	fdb sp_rts			; update handler n/a
 	fdb sp_dptr_rtn		; destruction code n/a
+	fdb sp_rts			; missile hit n/a
 
 ;----------------------------------------------------------
 ; boss
 
 sp_boss_desc
 	fdb sp_boss_offscreen	; offscreen handler
-	fdb 0					; explosion sound n/a
+	fdb SND_EXPL2			; explosion sound n/a
 	fcb 0					; score n/a
 	fdb sp_rts				; update handler n/a
 	fdb sp_dptr_rtn			; destruction code n/a
+	fdb sp_boss_on_missile	; missile hit n/a
 
 sp_boss_init
 	ldb player_dir
@@ -234,8 +246,8 @@ sp_boss_init
 	std SP_XORD,u
 	ldd 2,x
 	std SP_YORD,u
-	ldd #sp_boss_img
-	std SP_FRAME0,u
+	ldd #sp_boss_frames1
+	std SP_FRAMEP,u
 
 	bsr sp_boss_init_helper
 	ldd ,x
@@ -243,8 +255,8 @@ sp_boss_init
 	std SP_XORD,u
 	ldd 2,x
 	std SP_YORD,u
-	ldd #sp_boss_img+96*4
-	std SP_FRAME0,u
+	ldd #sp_boss_frames2
+	std SP_FRAMEP,u
 
 	bsr sp_boss_init_helper
 	ldd ,x
@@ -252,8 +264,8 @@ sp_boss_init
 	ldd 2,x
 	addd #12*32
 	std SP_YORD,u
-	ldd #sp_boss_img+96*4*2
-	std SP_FRAME0,u
+	ldd #sp_boss_frames3
+	std SP_FRAMEP,u
 
 	bsr sp_boss_init_helper
 	ldd ,x
@@ -262,9 +274,10 @@ sp_boss_init
 	ldd 2,x
 	addd #12*32
 	std SP_YORD,u
-	ldd #sp_boss_img+96*4*3
-	std SP_FRAME0,u
-
+	ldd #sp_boss_frames4
+	std SP_FRAMEP,u
+	dec SP_MISFLG,u
+	stu boss_sprite
 	rts
 
 
@@ -281,10 +294,12 @@ sp_boss_init_helper
 	ldd 2,y
 	std SP_YVEL,u
 	clr SP_MISFLG,u
-
-	ldd #0
-	std SP_FRAMEP,u
-
+	clr SP_COLFLG,u
+	lda player_dir
+	adda #16
+	lsla
+	anda #$3c
+	sta SP_DATA,u
 	ldd #sp_boss_desc
 	std SP_DESC,u
 	rts
@@ -303,11 +318,116 @@ sp_boss_offscreen
 	cmpd #(SCRN_HGT*32+24*32)
 	bge 1f
 	jmp sp_update_sp4x12_next
-1	jmp sp_remove
+1	clra
+	clrb
+	std boss_sprite		; sprite is no longer valid
+	jmp sp_remove
+
+
+task_update_boss
+	ldu boss_sprite
+	lbeq 9f
+
+	lda #4		; chase player
+	ldb boss_hit
+	beq 1f
+	nega		; run away
+1	sta sp_dir
+
+	ldd SP_XORD,u			; subtract player coord x
+	subd #(PLYR_LEFT*64)
+	addd #-6*64
+	lslb
+	rola
+	lslb
+	rola
+	sta dx
+	ldd #(PLYR_TOP*32)		; subtract from player coord y
+	subd SP_YORD,u			; (screen coords are upside down)
+	subd #-6*32
+	lslb
+	rola
+	lslb
+	rola
+	lslb
+	rola
+	sta dy
+
+	ldb #4		; determine octant
+    lda dy		;
+	bpl 1f		; y >= 0
+	neg dx		; rotate 180 cw
+	neg dy		;
+	addb #4*8	;
+1	lda dx		;
+	bpl 1f		; x >= 0
+	nega		; rotate 90 cw
+	ldx dy   	; don't care about low byte
+	stx dx    	;  just need to swap dx & dy
+	sta dy		;
+	lda dx		;
+	addb #2*8	;
+1	cmpa dy		;
+	bhs 1f		; x >= y
+	addb #1*8	;
+
+	; determine which direction to rotate
+1	lda sp_dir
+	subb SP_DATA,u
+	bne 1f
+	tsta
+	bpl 9f
+	bra 3f
+1	bpl 1f
+	nega
+	negb
+1	cmpb #32
+	blo 3f
+	nega
+
+3	adda SP_DATA,u
+	anda #$3c
+	sta SP_DATA,u
+	ldx #sp_boss_vel_table
+	leax a,x
+
+	ldd ,x
+	std SP_XVEL,u
+	ldd 2,x
+	std SP_YVEL,u
+	ldu SP_LINK,u
+	ldd ,x
+	std SP_XVEL,u
+	ldd 2,x
+	std SP_YVEL,u
+	ldu SP_LINK,u
+	ldd ,x
+	std SP_XVEL,u
+	ldd 2,x
+	std SP_YVEL,u
+	ldu SP_LINK,u
+	ldd ,x
+	std SP_XVEL,u
+	ldd 2,x
+	std SP_YVEL,u
+
+9	rts
+
+
+; code to run when missile hits boss
+sp_boss_on_missile
+	inc boss_hit
+	clr SP_MISFLG,u
+	;ldx #SND_EXPL2
+	ldx SP_EXPL,x
+	jsr snd_start_fx
+	ldx boss_sprite
+	jmp boss_explosion
+
 
 ; boss velocity table
 sp_boss_vel_table
-	mac_velocity_table_180 1.5
+	mac_velocity_table_180 1.125
 
 
 ;**********************************************************
@@ -319,7 +439,7 @@ sp_expl_frames
 	fdb sp_explosion_img+1*384
 	fdb sp_explosion_img+2*384
 	fdb sp_explosion_img+3*384
-	fdb 0
+	fdb 0,0
 
 sp_player_expl_frames
 	fdb sp_explosion_img+3*384
@@ -331,11 +451,25 @@ sp_player_expl_frames
 	fdb sp_explosion_img+1*384
 	fdb sp_explosion_img+2*384
 	fdb sp_explosion_img+3*384
-	fdb 0
+	fdb 0,0
 
-sp_flap_frames
-	fdb sp_flap_img
-	fdb sp_flap_img+1*384
-	fdb sp_flap_img+2*384
-	fdb sp_flap_img+3*384
-	fdb 0
+sp_std_frames
+	fdb sp_std_img
+	fdb 0, sp_std_frames
+
+sp_form_frames
+	fdb sp_form_img
+	fdb sp_form_img+1*384
+	fdb sp_form_img+2*384
+	fdb sp_form_img+3*384
+	fdb 0, sp_form_frames
+
+
+sp_boss_frames1
+	fdb sp_boss_img,0,sp_boss_frames1
+sp_boss_frames2
+	fdb sp_boss_img+384,0,sp_boss_frames2
+sp_boss_frames3
+	fdb sp_boss_img+384*2,0,sp_boss_frames3
+sp_boss_frames4
+	fdb sp_boss_img+384*3,0,sp_boss_frames4

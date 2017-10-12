@@ -41,10 +41,10 @@ en_sprite_init_form
 	ldd 2,y
 	std SP_YVEL,u
 	clr SP_MISFLG,u
+	clr SP_COLFLG,u
 
-	ldd #sp_flap_frames
+	ldd #sp_form_frames
 	std SP_FRAMEP,u
-	std SP_FRAME0,u
 
 	ldd #sp_form_enemy
 	std SP_DESC,u
@@ -136,6 +136,7 @@ en_sprite_init_std
 	stb SP_DATA,u		; angle
 	negb
 	stb SP_MISFLG,u		; trackable
+	clr SP_COLFLG,u
 	lda #3
 	;lda [rnd_ptr]
 	;anda #1
@@ -151,16 +152,14 @@ en_sprite_init_std
 	std SP_XVEL,u
 	ldd 2,y
 	std SP_YVEL,u
-	ldd #sp_test_img
-	std SP_FRAME0,u
-	ldd #0
+	ldd #sp_std_frames
 	std SP_FRAMEP,u
 	ldd #sp_std_enemy
 	std SP_DESC,u
 	rts
 
 
-exec_update_enemy
+task_update_enemy
 	ldu en_update_ptr
 	leau SP_SIZE,u
 	cmpu #sp_data_end

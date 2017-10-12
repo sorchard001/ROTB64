@@ -7,9 +7,9 @@
 	include "stdmacros.asm"
 
 DBG_RASTER 			equ 1
-;DBG_NO_PLAYER_COL	equ 1
+DBG_NO_PLAYER_COL	equ 1
 ;DBG_NO_PLAYER_MOVE	equ 1
-;DBG_SKIP_INTRO		equ 1
+DBG_SKIP_INTRO		equ 1
 
 ; 64K mode
 CFG_64K				equ 1
@@ -121,13 +121,15 @@ scroll_y		rmb 2	; background scroll y for current frame (add to all coords)
 score2			rmb 1
 score1			rmb 1
 score0			rmb 1
-exec_ptr		rmb 2
+task_ptr		rmb 2
 rnd_ptr			rmb 2
 mode_routine	rmb 2
 death_tmr		rmb 1
 bonus_tmr		rmb 1
 bonus_ptr		rmb 2
 lives			rmb 1
+boss_sprite		rmb 2
+boss_hit		rmb 1
 
  if DBG_RASTER
 show_raster		rmb 1
@@ -317,7 +319,11 @@ RESTART_GAME
 	sta score0
 
 START_LEVEL
-	clr en_count
+	clra
+	clrb
+	sta en_count
+	std missile_offset_x
+	std missile_offset_y
 
 NEXT_LIFE
 
@@ -335,8 +341,8 @@ START_DIR	equ 8
 
 	ldd #fl_mode_normal
 	std mode_routine
-	ldd #exec_table_normal
-	std exec_ptr
+	ldd #task_table_normal
+	std task_ptr
 	clr bonus_tmr
 
 	jsr warp_intro
@@ -370,9 +376,6 @@ MLOOP
 
 	; copy background to frame buffer
 	jsr td_copybuf
-
-	; draw non-collidable sprites
-	jsr sp_update_non_collidable
 
 	jsr scan_keys
 
@@ -432,12 +435,12 @@ MLOOP
 
 1
 	; housekeeping list
-	ldu exec_ptr
+	ldu task_ptr
 	ldx ,u++
 	bne 1f
 	ldu ,u
 	ldx ,u++
-1	stu exec_ptr
+1	stu task_ptr
 	jsr ,x
 
 
@@ -451,6 +454,9 @@ end_level
 ;*************************************
 
 fl_mode_normal
+	; draw non-collidable sprites
+	jsr sp_update_non_collidable
+
 	; player ship
 	jsr draw_player
 
@@ -468,20 +474,32 @@ fl_mode_normal
 1	lda #1
 	bita keytable+3
 	bne 1f
-	ldd #fl_mode_warp_out
-	std mode_routine
-	ldx #SND_WARPOUT
-	jsr snd_start_fx_force
+	ldx #sp_start_boss
+	stx on_no_sprites
+	ldd #task_table_nospawn
+	std task_ptr
 
 1	rts
 
+;*************************************
 
 fl_mode_boss
 	jsr draw_player
 	jsr pb_update_all
 	jsr sp_update_collidable
 	jsr player_collision
+	jsr sp_update_non_collidable		; draw explosions on top of boss
 	jsr [control_set]
+
+	lda boss_hit
+	beq 1f
+	ldx boss_sprite
+	beq 1f
+	lda frmflag
+	beq 1f
+
+	bsr boss_explosion
+
 
 	; 5
 1	lda #1
@@ -495,14 +513,45 @@ fl_mode_boss
 1	rts
 
 
+; create explosion sprite at location of boss
+boss_explosion
+	ldu sp_free_list
+	beq 1f
+	ldd SP_LINK,u		; remove sprite from free list
+	std sp_free_list	;
+	ldd sp_ncol_list	; add sprite to non-collidable list
+	std SP_LINK,u		;
+	stu sp_ncol_list	;
+	inc sp_count		;
+
+	ldd SP_XORD,x
+	addd #-6*64		;missile_offset_x
+	std SP_XORD,u
+	ldd SP_YORD,x
+	addd #-6*32		;missile_offset_y
+	std SP_YORD,u
+	;ldd SP_XVEL,x
+	;subd scroll_x
+	clra
+	clrb
+	std SP_XVEL,u
+	;ldd SP_YVEL,x
+	;subd scroll_y
+	clra
+	clrb
+	std SP_YVEL,u
+	ldd #sp_player_expl_frames
+	;ldd #sp_expl_frames
+	std SP_FRAMEP,u
+	ldd #sp_std_explosion
+	std SP_DESC,u
+1	rts
+
+;*************************************
+
 fl_mode_warp_out
-	; player ship
 	jsr draw_player
-
-	; update player bullets (move, draw & save data for collision detect)
 	jsr pb_update_all
-
-	; draw collidable sprites
 	jsr sp_update_collidable
 
 	lda player_dir
@@ -531,12 +580,11 @@ fl_mode_warp_out
 1	leas 2,s
 	jmp START_LEVEL
 
+;*************************************
 
 fl_mode_death
-	; update player bullets (move, draw & save data for collision detect)
+	jsr sp_update_non_collidable
 	jsr pb_update_all
-
-	; draw collidable sprites
 	jsr sp_update_collidable
 
 	lda death_tmr
@@ -619,42 +667,42 @@ rndb adda #0
 
 	section "CODE"
 
-exec_table_normal
+task_table_normal
 	fdb draw_lives
 	fdb draw_lives
-exec_table_normal_rst
+task_table_normal_rst
 	fdb draw_score2
 	fdb draw_score1
 	fdb draw_score0
-	fdb exec_update_enemy
-	fdb exec_update_enemy
-	fdb exec_update_enemy
+	fdb task_update_enemy
+	fdb task_update_enemy
+	fdb task_update_enemy
 	fdb draw_score1
  	fdb draw_score0
 	fdb draw_score2
-	fdb exec_update_enemy
-	fdb exec_update_enemy
-	fdb exec_update_enemy
+	fdb task_update_enemy
+	fdb task_update_enemy
+	fdb task_update_enemy
 	fdb draw_score2
 	fdb draw_score1
 	fdb draw_score0
-	fdb exec_update_enemy
-	fdb exec_update_enemy
-	fdb exec_update_enemy
+	fdb task_update_enemy
+	fdb task_update_enemy
+	fdb task_update_enemy
 	fdb draw_score1
 	fdb draw_score0
 	fdb draw_score2
-	fdb exec_update_enemy
-	fdb exec_update_enemy
-	fdb exec_update_enemy
+	fdb task_update_enemy
+	fdb task_update_enemy
+	fdb task_update_enemy
 	fdb en_spawn
-	fdb 0, exec_table_normal_rst
+	fdb 0, task_table_normal_rst
 
 
-exec_table_nospawn
+task_table_nospawn
 	fdb draw_lives
 	fdb draw_lives
-exec_table_nospawn_rst
+task_table_nospawn_rst
 	fdb check_no_sprites
 	fdb draw_score2
 	fdb draw_score1
@@ -662,10 +710,25 @@ exec_table_nospawn_rst
 	fdb draw_score2
 	fdb draw_score1
 	fdb draw_score0
-	fdb exec_update_enemy
-	fdb 0, exec_table_nospawn_rst
+	fdb task_update_enemy
+	fdb 0, task_table_nospawn_rst
 
-exec_nop
+task_table_boss
+	fdb draw_lives
+	fdb draw_lives
+task_table_boss_rst
+	fdb check_no_sprites
+	fdb draw_score2
+	fdb draw_score1
+	fdb draw_score0
+	fdb draw_score2
+	fdb draw_score1
+	fdb draw_score0
+	fdb task_update_boss
+	fdb 0, task_table_boss_rst
+
+
+task_nop
 	rts
 
 ;*************************************
@@ -678,9 +741,9 @@ on_no_sprites	rmb 2
 
 check_no_sprites
 	lda sp_count
-	bne exec_nop
+	bne task_nop
 	ldx on_no_sprites
-	ldd #exec_nop
+	ldd #task_nop
 	std on_no_sprites
 	jmp ,x
 

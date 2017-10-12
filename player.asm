@@ -111,10 +111,10 @@ pcol_inc equ *+2
 	sta lives
 	ldd #fl_mode_death
 	std mode_routine
-	ldd #exec_nop
+	ldd #task_nop
 	std on_no_sprites
-	ldd #exec_table_nospawn
-	std exec_ptr
+	ldd #task_table_nospawn
+	std task_ptr
 	lda #50
 	sta death_tmr
 	ldx #SND_EXPL2
@@ -140,9 +140,6 @@ player_explosion
 	clrb
 	subd scroll_y
 	std SP_YVEL,u
-	clra
-	clrb
-	std SP_FRAME0,u
 	ldd #sp_player_expl_frames
 	std SP_FRAMEP,u
 	ldd #sp_std_explosion
