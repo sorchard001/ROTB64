@@ -12,7 +12,7 @@ SPM_VALID		rmb 1	; sprite valid if non-zero
 SPM_ROUTINE		rmb 2	; pointer to update routine
 SPM_DIR			rmb 1	; direction
 SPM_TARGET		rmb 2	; pointer to target sprite
-SPM_TARGET_OFF	rmb 2	; target marker offset
+SPM_MARKER_OFF	rmb 2	; target markers offset
 SPM_SIZE		equ *	; size of data structure
 
 
@@ -21,6 +21,7 @@ SPM_SIZE		equ *	; size of data structure
 ; mask + image requires 48 bytes (3x8 sprite)
 sp_pmissile_img		rmb 48*4*9
 
+; two missiles
 sp_data_pm1		rmb SPM_SIZE
 sp_data_pm2		rmb SPM_SIZE
 
@@ -36,11 +37,10 @@ missile_offset_y	rmb 2	; (e.g. to place target in centre of boss)
 pmiss_vel_table
 	mac_velocity_table 2.5
 
-sp_init_3x8
+pmiss_init
 	jsr sp_unpack_3x8
 	clr sp_data_pm1 + SPM_VALID
 	clr sp_data_pm2 + SPM_VALID
-;pmiss_init
 	ldd #pmr_init_target
 	std sp_data_pm1 + SPM_ROUTINE
 	std sp_data_pm2 + SPM_ROUTINE
@@ -73,6 +73,7 @@ sp_test_3x8_launch
 
 ; ---------------------------------------------------------
 
+; call once per frame to update missiles
 pmiss_update
 	ldy #sp_data_pm1
 	jsr [SPM_ROUTINE,y]
@@ -90,25 +91,36 @@ pmr_init_target
 	std SPM_ROUTINE,y
 	rts
 
+
 ; search for target
 pmr_find_target
 	ldu SPM_TARGET,y
 	lda SP_MISFLG,u
-	bmi 2f
-	leax SP_SIZE,u
-	cmpx #sp_data_end
-	blo 1f
-	ldx #sp_data
-1	stx SPM_TARGET,y
-	rts
+	bpl 2f				; target can't be tracked (or already tracked)
 
-2	neg SP_MISFLG,u		; now tracking target
-	;stu SPM_TARGET,y
+	ldd SP_XORD,u
+	addd missile_offset_x
+	cmpa #28
+	bhi 2f				; off left or right of screen
+	ldd SP_YORD,u
+	addd missile_offset_y
+	subd #(SCRN_HGT-12)*32
+	bhi 2f				; off top or bottom of screen
+
+	neg SP_MISFLG,u		; set positive to indicate target being tracked
 	ldd #pmr_targeting
 	std SPM_ROUTINE,y
-	ldd #-12*32
-	std SPM_TARGET_OFF,y
+	ldd #-12*32			; initialise target markers
+	std SPM_MARKER_OFF,y
 	rts
+
+2	leax SP_SIZE,u		; get address of next sprite
+	cmpx #sp_data_end	;
+	blo 1f				;
+	ldx #sp_data		;
+1	stx SPM_TARGET,y	;
+	rts
+
 
 
 ; draw target box closing in
@@ -117,10 +129,10 @@ pmr_targeting
 	lda SP_MISFLG,u
 	beq 1f
 	jsr pmiss_draw_target_locking
-	ldd SPM_TARGET_OFF,y
+	ldd SPM_MARKER_OFF,y
 	addd #32
 	bpl 2f
-	std SPM_TARGET_OFF,y
+	std SPM_MARKER_OFF,y
 	rts
 
 1	ldd #pmr_find_target
@@ -131,6 +143,8 @@ pmr_targeting
 	std SPM_ROUTINE,y
 	rts
 
+
+; draw target box locked on
 pmr_locked
 	ldu SPM_TARGET,y
 	lda SP_MISFLG,u
@@ -138,14 +152,14 @@ pmr_locked
 	jmp pmiss_draw_target_locked
 
 
-; launch
+; launch missile
 pmr_launch
 	ldd #pmr_flight
 	std SPM_ROUTINE,y
 	rts
 
 
-; home in on target or random flight
+; random flight
 pmr_flight_rnd
 	lda SPM_VALID,y
 	beq 5f
@@ -159,10 +173,11 @@ pmr_flight_rnd
 	bra _pmiss_update_sprite
 
 
+; home in on target
 pmr_flight
 	lda SPM_VALID,y
-	bne 1f
-5	ldd #pmr_find_target
+	bne 1f					; missile still active
+5	ldd #pmr_find_target	; no missile: find target
 	std SPM_ROUTINE,y
 	rts
 
@@ -221,16 +236,16 @@ pmiss_check_hit
 	ldd SP_XORD,y
 	subd SP_XORD,u
 	subd missile_offset_x
-	cmpd #-4*64
+	cmpa #-1	;cmpd #-4*64
 	blt 1f
-	cmpd #8*64
+	cmpa #2		;cmpd #8*64
 	bgt 1f
 	ldd SP_YORD,y
 	subd SP_YORD,u
 	subd missile_offset_y
-	cmpd #-4*32
+	cmpa #-1	;cmpd #-4*64
 	blt 1f
-	cmpd #8*32
+	cmpa #2		;cmpd #8*64
 	bgt 1f
 	clr SPM_VALID,y
 1	rts
@@ -239,7 +254,7 @@ pmiss_check_hit
 pmiss_track
 	ldd SP_XORD,u
 	addd missile_offset_x
-	addd #2				; adjust for difference in sprite size
+	addd #2*64				; adjust for difference in sprite size
 	subd SP_XORD,y
 	lslb
 	rola
@@ -247,7 +262,7 @@ pmiss_track
 	ldd SP_YORD,y
 	subd SP_YORD,u
 	subd missile_offset_y
-	subd #2				; adjust for difference in sprite size
+	subd #2*32				; adjust for difference in sprite size
 	lslb
 	rola
 	lslb
@@ -294,33 +309,62 @@ pmiss_track
 ; y - missile
 ; u - target sprite
 pmiss_draw_target_locking
-	ldd SPM_TARGET_OFF,y
-	bsr 1f
-	ldu SPM_TARGET,y	; restore u
+	ldd SP_XORD,u			; lose lock if target sprite partially off screen
+	addd missile_offset_x	;
+	cmpa #28				;
+	bhi pmiss_lose_lock		;
+	ldd SP_YORD,u			;
+	addd missile_offset_y	;
+	subd #(SCRN_HGT-12)*32	;
+	bhi pmiss_lose_lock		;
+
+	ldd SPM_MARKER_OFF,y
+	bsr pmiss_draw_target
+	ldu SPM_TARGET,y		; restore u
 	ldd #11*32
-	subd SPM_TARGET_OFF,y
-	bra 1f
+	subd SPM_MARKER_OFF,y
+	bra pmiss_draw_target
+
+pmiss_lose_lock
+	lda #-1				; set sprite to be tracked again
+	sta SP_MISFLG,u		; in case it comes back into view
+	lda SPM_VALID,y
+	beq 1f				; missile was not in flight
+	ldd #pmr_flight_rnd	; set missile to random flight
+	std SPM_ROUTINE,y
+	rts
+1	ldd #pmr_find_target ; look for another target
+	std SPM_ROUTINE,y
+	rts
 
 ; draw target markers locked
 ; y - missile
 ; u - target sprite
 pmiss_draw_target_locked
+	ldd SP_XORD,u			; lose lock if target sprite partially off screen
+	addd missile_offset_x	;
+	cmpa #28				;
+	bhi pmiss_lose_lock		;
+	ldd SP_YORD,u			;
+	addd missile_offset_y	;
+	subd #(SCRN_HGT-12)*32	;
+	bhi pmiss_lose_lock		;
+
 	ldd #0
-	bsr 1f
+	bsr pmiss_draw_target
 	ldu SPM_TARGET,y	; restore u
 	ldd #11*32
 
-1	addd SP_YORD,u
+pmiss_draw_target
+	addd SP_YORD,u
 	addd missile_offset_y
 	cmpd #SCRN_HGT*32
-	bhs 9f			; off top or bottom of screen
+	bhs 9f			; off top or bottom of screen: don't draw
 	andb #$e0		; remove sub-pixel bits
 	adda td_fbuf	; screen base
 	tfr d,x
 	ldd SP_XORD,u
 	addd missile_offset_x
-	cmpa #28
-	bhi 9f			; off left or right of screen
 
 	leax a,x
 	lsrb
@@ -339,8 +383,8 @@ pmiss_draw_target_locked
 	andb 3,x
 	addd 6,u
 	std 2,x
-
 9	rts
+
 
 pmiss_target_table
 	fdb $0000,$00ff

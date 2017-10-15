@@ -128,8 +128,6 @@ death_tmr		rmb 1
 bonus_tmr		rmb 1
 bonus_ptr		rmb 2
 lives			rmb 1
-boss_sprite		rmb 2
-boss_hit		rmb 1
 
  if DBG_RASTER
 show_raster		rmb 1
@@ -335,9 +333,9 @@ START_DIR	equ 8
 	std scroll_x_inc
 
 	jsr sp_init_all
-	jsr sp_init_3x8
 	jsr pb_init_all
 	jsr en_init_all
+	jsr pmiss_init
 
 	ldd #fl_mode_normal
 	std mode_routine
@@ -530,15 +528,9 @@ boss_explosion
 	ldd SP_YORD,x
 	addd #-6*32		;missile_offset_y
 	std SP_YORD,u
-	;ldd SP_XVEL,x
-	;subd scroll_x
 	clra
 	clrb
 	std SP_XVEL,u
-	;ldd SP_YVEL,x
-	;subd scroll_y
-	clra
-	clrb
 	std SP_YVEL,u
 	ldd #sp_player_expl_frames
 	;ldd #sp_expl_frames
@@ -718,13 +710,15 @@ task_table_boss
 	fdb draw_lives
 task_table_boss_rst
 	fdb check_no_sprites
-	fdb draw_score2
-	fdb draw_score1
-	fdb draw_score0
-	fdb draw_score2
-	fdb draw_score1
-	fdb draw_score0
 	fdb task_update_boss
+	fdb draw_score2
+	fdb draw_score1
+	fdb draw_score0
+	fdb check_no_sprites
+	fdb task_update_boss
+	fdb draw_score2
+	fdb draw_score1
+	fdb draw_score0
 	fdb 0, task_table_boss_rst
 
 

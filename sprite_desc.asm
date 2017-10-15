@@ -223,23 +223,37 @@ sp_std_explosion
 ;----------------------------------------------------------
 ; boss
 
+	section "DPVARS"
+
+boss_sprite			rmb 2	; address of first boss sprite
+boss_sprite_last	rmb 2	; address of last boss sprite
+boss_hit			rmb 1	; flag that boss has been hit by player missile
+
+
+	section "CODE"
+
 sp_boss_desc
 	fdb sp_boss_offscreen	; offscreen handler
-	fdb SND_EXPL2			; explosion sound n/a
+	fdb SND_EXPL2			; explosion sound
 	fcb 0					; score n/a
 	fdb sp_rts				; update handler n/a
 	fdb sp_dptr_rtn			; destruction code n/a
-	fdb sp_boss_on_missile	; missile hit n/a
+	fdb sp_boss_on_missile	; missile hit code
 
+
+; initialise boss just off edge of screen behind player
+; boss is made up of four sprites flying in formation
+; assumes there are four free sprites
 sp_boss_init
-	ldb player_dir
-	addb #16
-	andb #30
-	lslb
-	ldy #sp_boss_vel_table	; get velocity
+	ldb player_dir			; determine direction behind player
+	addb #16				;
+	andb #30				;
+	lslb					;
+	ldy #sp_boss_vel_table	; boss velocity
 	leay b,y				;
-	ldx #boss_coords
-	abx
+	ldx #boss_coords		; boss coords
+	abx						;
+	stb temp0				; save direction for helper routine
 
 	bsr sp_boss_init_helper
 	ldd ,x
@@ -248,6 +262,7 @@ sp_boss_init
 	std SP_YORD,u
 	ldd #sp_boss_frames1
 	std SP_FRAMEP,u
+	stu boss_sprite_last
 
 	bsr sp_boss_init_helper
 	ldd ,x
@@ -276,11 +291,15 @@ sp_boss_init
 	std SP_YORD,u
 	ldd #sp_boss_frames4
 	std SP_FRAMEP,u
-	dec SP_MISFLG,u
-	stu boss_sprite
+	lda player_dir
+	sta SP_DATA2,u
+	dec SP_MISFLG,u		; this one can be targeted
+	stu boss_sprite		; keep address for update routines
 	rts
 
 
+; create one of the four sprites that make up the boss
+; y points to velocity
 sp_boss_init_helper
 	ldu sp_free_list	; get next free sprite
 	ldd SP_LINK,u		; remove sprite from free list
@@ -288,42 +307,120 @@ sp_boss_init_helper
 	ldd sp_pcol_list	; add sprite to collidable list
 	std SP_LINK,u		;
 	stu sp_pcol_list	;
-	inc sp_count
-	ldd ,y
-	std SP_XVEL,u
-	ldd 2,y
-	std SP_YVEL,u
-	clr SP_MISFLG,u
-	clr SP_COLFLG,u
-	lda player_dir
-	adda #16
-	lsla
-	anda #$3c
-	sta SP_DATA,u
-	ldd #sp_boss_desc
-	std SP_DESC,u
+	inc sp_count		; update sprite allocation count
+	lda temp0			; initial direction
+	sta SP_DATA,u		;
+	ldd ,y				; initial velocity
+	std SP_XVEL,u		;
+	ldd 2,y				;
+	std SP_YVEL,u		;
+	clr SP_MISFLG,u		; can't be targeted for missiles
+	clr SP_COLFLG,u		; init collision flag
+	ldd #sp_boss_desc	; additional descriptor for boss
+	std SP_DESC,u		;
 	rts
 
 
 ; boss off-screen handler
+; if boss has been hit then remove
+; else limit coords to just out of view.
 sp_boss_offscreen
+	lda boss_hit		; If boss has been hit then we need to
+	beq 1f				; remove sprites when they go off screen.
+	cmpy boss_sprite	; Wait until we're looking at first sprite in list.
+	beq 2f				;
+3	jmp sp_update_sp4x12_next
+1	cmpy boss_sprite_last	; Waiting for last sprite so that modified
+	bne 3b					; coords don't get overwritten by update routine
+
+; stop boss going any further than just off edge of screen
 	lda SP_XORD,y
-	cmpa #-6
+	cmpd #-24*64
+	bge 3f
+	ldd #-24*64
+	bsr sp_boss_update_x
+	bra 4f
+3	cmpd #128*64
+	ble 4f
+	ldd #128*64
+	bsr sp_boss_update_x
+4	ldd SP_YORD,y
+	cmpd #-24*32
+	bge 5f
+	ldd #-24*32
+	bsr sp_boss_update_y
+	bra 6f
+5	cmpd #(SCRN_HGT)*32
+	ble 6f
+	ldd #(SCRN_HGT)*32
+	bsr sp_boss_update_y
+6	jmp sp_update_sp4x12_next
+
+
+; remove boss when off screen
+2	lda SP_XORD,y
+	cmpa #-2
 	blt 1f
-	cmpa #35
-	bge 1f
+	cmpa #34
+	bgt 1f
 	ldd SP_YORD,y
-	cmpd #-11*32-24*32
+	cmpd #-12*32
 	blt 1f
-	cmpd #(SCRN_HGT*32+24*32)
+	cmpd #(SCRN_HGT+12)*32
 	bge 1f
 	jmp sp_update_sp4x12_next
+
 1	clra
 	clrb
 	std boss_sprite		; sprite is no longer valid
+	clr SP_MISFLG,y
+	bsr sp_boss_remove
+	bsr sp_boss_remove
+	bsr sp_boss_remove
 	jmp sp_remove
 
+; remove one boss sprite
+sp_boss_remove
+	dec sp_count		; reduce sprite count
+	ldu sp_prev_ptr		; remove sprite from current list
+	ldd SP_LINK,y		;
+	std SP_LINK,u		;
+	ldd sp_free_list	; add sprite to free list
+	std SP_LINK,y		;
+	sty sp_free_list	;
+	ldy SP_LINK,u		; next sprite
+	rts
 
+; write x coord to all boss sprites
+sp_boss_update_x
+	std SP_XORD,y
+	ldu boss_sprite
+	addd #12*64
+	std SP_XORD,u
+	ldu SP_LINK,u
+	subd #12*64
+	std SP_XORD,u
+	ldu SP_LINK,u
+	addd #12*64
+	std SP_XORD,u
+	rts
+
+; write y coord to all boss sprites
+sp_boss_update_y
+	std SP_YORD,y
+	ldu boss_sprite
+	addd #12*32
+	std SP_YORD,u
+	ldu SP_LINK,u
+	std SP_YORD,u
+	ldu SP_LINK,u
+	subd #12*32
+	std SP_YORD,u
+	rts
+
+; boss behaviour:
+; steer toward centre of screen
+; with modification to steer behind player as they turn
 task_update_boss
 	ldu boss_sprite
 	lbeq 9f
@@ -334,17 +431,17 @@ task_update_boss
 	nega		; run away
 1	sta sp_dir
 
-	ldd SP_XORD,u			; subtract player coord x
+	ldd SP_XORD,u			; calculate distance of boss from player
 	subd #(PLYR_LEFT*64)
-	addd #-6*64
+	addd #-6*64				; adjustment to allow for size of boss
 	lslb
 	rola
 	lslb
 	rola
 	sta dx
-	ldd #(PLYR_TOP*32)		; subtract from player coord y
-	subd SP_YORD,u			; (screen coords are upside down)
-	subd #-6*32
+	ldd #(PLYR_TOP*32)
+	subd SP_YORD,u
+	subd #-6*32				; adjustment to allow for size of boss
 	lslb
 	rola
 	lslb
@@ -376,7 +473,7 @@ task_update_boss
 	subb SP_DATA,u
 	bne 1f
 	tsta
-	bpl 9f
+	bpl 9f		; chasing player so done if direction equal
 	bra 3f
 1	bpl 1f
 	nega
@@ -385,12 +482,36 @@ task_update_boss
 	blo 3f
 	nega
 
-3	adda SP_DATA,u
-	anda #$3c
-	sta SP_DATA,u
-	ldx #sp_boss_vel_table
-	leax a,x
+	; modification #1: slow down boss when nearer to player
+3	ldx #sp_boss_vel_table
+	ldb dx
+	bpl 5f
+	negb
+5	cmpb #32
+	bhi 6f
+	ldb dy
+	bpl 5f
+	negb
+5	cmpb #32
+	bhi 6f
+	leax 64,x		; reduced velocity when nearer to player
+	asra			; also reduced turn rate
+	asra			;
 
+	; modification #2: input a proportion of player steering
+6	sta temp0
+	lda SP_DATA2,u
+	suba player_dir
+	asra
+	adda temp0
+	ldb player_dir	; save player_dir for next time
+	stb SP_DATA2,u	;
+
+	adda SP_DATA,u
+	anda #$3f
+	sta SP_DATA,u	; new direction
+	anda #$3c
+	leax a,x
 	ldd ,x
 	std SP_XVEL,u
 	ldd 2,x
@@ -427,7 +548,8 @@ sp_boss_on_missile
 
 ; boss velocity table
 sp_boss_vel_table
-	mac_velocity_table_180 1.125
+	mac_velocity_table_180 1.5
+	mac_velocity_table_180 1.25
 
 
 ;**********************************************************

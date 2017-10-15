@@ -77,8 +77,9 @@ sp_update_3x8
 
 
 sp_3x8_remove
-	clr SPM_VALID,y
-	rts
+	clr SPM_VALID,y		; this really belongs to player missile code
+	rts					; but left here for efficiency
+						; (should use vector for general purpose use)
 
 ;**********************************************************
 

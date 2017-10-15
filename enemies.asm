@@ -134,7 +134,7 @@ en_spawn
 en_sprite_init_std
 	ldu sp_free_list	; get next free sprite
 	stb SP_DATA,u		; angle
-	negb
+	ldb #-1
 	stb SP_MISFLG,u		; trackable
 	clr SP_COLFLG,u
 	lda #3

@@ -361,7 +361,7 @@ sp_draw_clip_table
 	fdb sp_offscreen
 	fdb sp_offscreen
 	fdb sp_offscreen
-
+	fdb sp_offscreen
 
 
 ; draw sprite
