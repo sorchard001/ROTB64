@@ -26,7 +26,7 @@ Debug keys:
 
 1. Change background colours
 2. Show raster position
-3. Warp
+3. Boss fight
 4. Spawn formation
 
 Please note the game is tuned for a Dragon at 50Hz and is broken at 60Hz.

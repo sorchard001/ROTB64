@@ -1,6 +1,7 @@
-_list.txt
-*.bat
+*.bin
+*.lst
+tags
 *.vdk
 *.wav
 *.$$$
-Thumbs.db
+
