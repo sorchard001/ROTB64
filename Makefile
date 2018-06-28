@@ -12,6 +12,10 @@ all: $(PRJ).bin
 $(PRJ).bin: *.asm *.s
 	$(ASM6809) -D -l $(PRJ).lst -o $@ $(PRJ).asm
 
+%.cas %.wav: %.bin
+	#bin2cas.pl -r 22050 -o $@ -D $<
+	bin2cas.pl --autorun -z --fast -r 22050 -o $@ -D $<
+
 # coords.asm generated from script
 $(PRJ).bin: coords.asm
 coords.asm: calc_coords.py
@@ -19,6 +23,9 @@ coords.asm: calc_coords.py
 
 
 .PHONY: clean
+clean:
 	rm -f $(PRJ).bin
 	rm -f $(PRJ).lst
+	rm -f $(PRJ).wav
+	rm -f $(PRJ).cas
 

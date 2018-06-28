@@ -184,7 +184,7 @@ td_scroll_right
 
 	; if moving to buffer 0 then need to move pointers
 	bita #3
-	lbne 5f
+	bne 5f
 
 	; move buffer pointer 1 byte to right
 	ldd td_bptr
@@ -389,7 +389,7 @@ td_drawsh\1
 	bne 1b
 
 	dec td_count
-	lbne 5b		; next tile
+	bne 5b		; next tile
 	jmp 3f
 
 2	
@@ -437,7 +437,11 @@ td_drawsh\1
 	td_pixel_shift_store \1,-32
 
 	dec td_count
+  if \1 != 0
 	lbne 5b		; next tile
+  else
+	bne 5b
+  endif
 
 3	
 	; draw partial tile at bottom (or not at all)

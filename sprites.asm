@@ -177,10 +177,11 @@ sp_update_sp4x12_destroy_b
 	ldx SP_EXPL,u			; explosion sound effect
 1	jsr snd_start_fx		;
 
-	ldd #sp_expl_frames		; turn sprite into explosion
-	std SP_FRAMEP,y
+	; turn sprite into explosion
 	ldd #sp_std_explosion
 	std SP_DESC,y
+	ldd #sp_std_expl_update
+	std SP_UPDATEP,y
 
 	jmp [SP_DPTR,u]		; additional code to run on destruction
 sp_dptr_rtn				; return from destruction routine
@@ -204,13 +205,9 @@ sp_update_sp4x12_next
 
 
 sp_update_sp4x12
-	ldx SP_FRAMEP,y		; get frame pointer
-	ldu ,x++			; get frame
-	bne 1f				; non-zero: frame OK to use
-	ldx ,x				; get repeat address
-	beq sp_remove		; no repeat - remove sprite
-	ldu ,x++			; get frame from repeat address
-1	stx SP_FRAMEP,y		; update frame pointer
+	jmp [SP_UPDATEP,y]
+sp_update_rtn
+	ldu SP_FRAMEP,y
 
 	lda #12			; default sprite height
 	sta td_count

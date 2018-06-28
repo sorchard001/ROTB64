@@ -9,7 +9,6 @@ en_std_max		rmb 1	; max number of standard enemies
 en_spawn_count	rmb 1	; counts number of standard enemies spawned vs formations
 en_form_count	rmb 1	; counts number of enemies remaining to be in formation
 en_count		rmb 1	; counts number of enemies destroyed
-en_update_ptr	rmb 2
 
 
 	section "CODE"
@@ -20,8 +19,6 @@ EN_FORM_PERIOD equ 8
 en_init_all
 	lda #EN_FORM_PERIOD
 	sta en_spawn_count
-	ldd #sp_data
-	std en_update_ptr
 	;clr en_count
 	;lda #3
 	;sta en_std_max
@@ -43,11 +40,10 @@ en_sprite_init_form
 	clr SP_MISFLG,u
 	clr SP_COLFLG,u
 
-	ldd #sp_form_frames
-	std SP_FRAMEP,u
-
 	ldd #sp_form_enemy
 	std SP_DESC,u
+	ldd #sp_form_update
+	std SP_UPDATEP,u
 9	rts
 
 
@@ -137,11 +133,13 @@ en_sprite_init_std
 	ldb #-1
 	stb SP_MISFLG,u		; trackable
 	clr SP_COLFLG,u
-	lda #3
+	lda #16
 	;lda [rnd_ptr]
 	;anda #1
 	;inca				; number of updates spent steering towards player
 	sta SP_DATA2,u		;
+	lda #4
+	sta SP_DATA3,u		;
 	ldd SP_LINK,u		; remove sprite from free list
 	std sp_free_list	;
 	ldd sp_pcol_list	; add sprite to collidable list
@@ -152,22 +150,14 @@ en_sprite_init_std
 	std SP_XVEL,u
 	ldd 2,y
 	std SP_YVEL,u
-	ldd #sp_std_frames
+	ldd #sp_std_img
 	std SP_FRAMEP,u
 	ldd #sp_std_enemy
 	std SP_DESC,u
+	ldd #sp_std_enemy_update
+	std SP_UPDATEP,u
 	rts
 
-
-task_update_enemy
-	ldu en_update_ptr
-	leau SP_SIZE,u
-	cmpu #sp_data_end
-	blo 1f
-	ldu #sp_data
-1	stu en_update_ptr
-	ldx SP_DESC,u
-	jmp [SP_UPDATE,x]
 
 ;-----------------------------------------------------------
 

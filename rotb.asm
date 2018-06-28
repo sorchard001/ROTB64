@@ -532,11 +532,10 @@ boss_explosion
 	clrb
 	std SP_XVEL,u
 	std SP_YVEL,u
-	ldd #sp_player_expl_frames
-	;ldd #sp_expl_frames
-	std SP_FRAMEP,u
 	ldd #sp_std_explosion
 	std SP_DESC,u
+	ldd #sp_plyr_expl_update
+	std SP_UPDATEP,u
 1	rts
 
 ;*************************************
@@ -666,27 +665,9 @@ task_table_normal_rst
 	fdb draw_score2
 	fdb draw_score1
 	fdb draw_score0
-	fdb task_update_enemy
-	fdb task_update_enemy
-	fdb task_update_enemy
 	fdb draw_score1
  	fdb draw_score0
 	fdb draw_score2
-	fdb task_update_enemy
-	fdb task_update_enemy
-	fdb task_update_enemy
-	fdb draw_score2
-	fdb draw_score1
-	fdb draw_score0
-	fdb task_update_enemy
-	fdb task_update_enemy
-	fdb task_update_enemy
-	fdb draw_score1
-	fdb draw_score0
-	fdb draw_score2
-	fdb task_update_enemy
-	fdb task_update_enemy
-	fdb task_update_enemy
 	fdb en_spawn
 	fdb 0, task_table_normal_rst
 
@@ -702,7 +683,6 @@ task_table_nospawn_rst
 	fdb draw_score2
 	fdb draw_score1
 	fdb draw_score0
-	fdb task_update_enemy
 	fdb 0, task_table_nospawn_rst
 
 task_table_boss
@@ -890,7 +870,7 @@ warp_outro
 	std pw_start
 3
 	dec pw_count
-	lbne 1b
+	bne 1b
 
 9	rts
 
@@ -988,3 +968,4 @@ __end_cyd_waves
 
 
 	end code_entry
+

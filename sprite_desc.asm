@@ -17,9 +17,11 @@ SP_YVEL		rmb 2	; y velocity * 32
 SP_FRAMEP	rmb 2	; pointer to current frame
 SP_MISFLG	rmb 1	; missile flag: 0 = not-trackable, -ve = trackable, +ve = tracking
 SP_COLFLG	rmb 1
+SP_UPDATEP	rmb 2
 SP_DESC		rmb 2	; pointer to additional (constant) info
 SP_DATA		rmb 1	; type dependent data
 SP_DATA2	rmb 1	; type dependent data
+SP_DATA3	rmb 1	; type dependent data
 SP_LINK		rmb 2	; pointer to next sprite in list
 
 SP_SIZE		equ *	; size of data structure
@@ -33,9 +35,10 @@ SP_SIZE		equ *	; size of data structure
 SP_OFFSCR	rmb 2	; pointer to offscreen handler
 SP_EXPL		rmb 2	; pointer to explosion sound effect
 SP_SCORE	rmb 1	; score
-SP_UPDATE	rmb 2	; pointer to update handler
 SP_DPTR		rmb 2	; pointer to code to run on death
 SP_MISCODE	rmb 2	; pointer to code to run on missile hit
+
+SP_DESC_SIZE	equ *	; size of data structure
 
 ;**********************************************************
 
@@ -47,12 +50,12 @@ SP_MISCODE	rmb 2	; pointer to code to run on missile hit
 ; standard enemy
 
 sp_std_enemy
-	fdb sp_remove		; offscreen handler
+1	fdb sp_remove		; offscreen handler
 	fdb SND_EXPL_S		; explosion sound
-	fcb 1				; score 10
-	fdb sp_std_update
+	fcb 1			; score 10
 	fdb sp_std_hit		; on destroy
-	fdb sp_rts			; missile hit n/a
+	fdb sp_rts		; missile hit n/a
+	assert (*-1b) == SP_DESC_SIZE, "sp_std_enemy wrong_size"
 
 	; on hit check if player has destroyed enough enemies
 sp_std_hit
@@ -68,7 +71,7 @@ sp_std_hit
 	std task_ptr
 	ldx #SND_ALERT2
 	jsr snd_start_fx_force
-1	jmp sp_dptr_rtn			; return to caller
+1	jmp sp_dptr_rtn		; return to caller
 
 
 sp_start_boss
@@ -92,18 +95,24 @@ sp_warp
 	jmp snd_start_fx_force
 
 
-dx		equ temp0
-dy		equ temp1
+dx	equ temp0
+dy	equ temp1
 sp_dir	equ temp2
 
-sp_std_update
+
+sp_std_enemy_update
+	dec SP_DATA3,y
+	bne 9f
+	lda #4
+	sta SP_DATA3,y
+
 	lda #4		; chase player
-	dec SP_DATA2,u
+	dec SP_DATA2,y
 	bpl 1f
 	nega		; run away
 1	sta sp_dir
 
-	ldd SP_XORD,u			; subtract player coord x
+	ldd SP_XORD,y			; subtract player coord x
 	subd #(PLYR_LEFT*64)
 	;lslb
 	;rola
@@ -111,7 +120,7 @@ sp_std_update
 	rola
 	sta dx
 	ldd #(PLYR_TOP*32)		; subtract from player coord y
-	subd SP_YORD,u			; (screen coords are upside down)
+	subd SP_YORD,y			; (screen coords are upside down)
 	;lslb
 	;rola
 	lslb
@@ -121,7 +130,7 @@ sp_std_update
 	sta dy
 
 	ldb #4		; determine octant
-    lda dy		;
+	lda dy		;
 	bpl 1f		; y >= 0
 	neg dx		; rotate 180 cw
 	neg dy		;
@@ -140,11 +149,11 @@ sp_std_update
 
 	; determine which direction to rotate
 1	lda sp_dir
-	subb SP_DATA,u
+	subb SP_DATA,y
 	;beq sp_rts
 	bne 1f
 	tsta
-	bpl sp_rts
+	lbpl sp_update_rtn
 	bra 3f
 1	bpl 1f
 	nega
@@ -153,15 +162,18 @@ sp_std_update
 	blo 3f
 	nega
 
-3	adda SP_DATA,u
+3	adda SP_DATA,y
 	anda #$3c
-	sta SP_DATA,u
+	sta SP_DATA,y
 	ldx #std_enemy_vel_table
 	leax a,x
 	ldd ,x
-	std SP_XVEL,u
+	std SP_XVEL,y
 	ldd 2,x
-	std SP_YVEL,u
+	std SP_YVEL,y
+
+9	jmp sp_update_rtn
+
 sp_rts
 	rts
 
@@ -171,13 +183,28 @@ sp_rts
 ; formation enemy
 
 sp_form_enemy
-	fdb sp_form_offscreen	; offscreen handler
-	fdb SND_EXPL_F			; explosion sound
-	fcb 2					; score 20
-	fdb sp_rts				; update handler n/a
-	fdb sp_form_hit			; on destroy
-	fdb sp_rts				; missile hit n/a
+1	fdb sp_form_offscreen	; offscreen handler
+	fdb SND_EXPL_F		; explosion sound
+	fcb 2			; score 20
+	fdb sp_form_hit		; on destroy
+	fdb sp_rts		; missile hit n/a
+	assert (*-1b) == SP_DESC_SIZE, "sp_form_enemy wrong size"
 
+sp_form_update
+	ldd #sp_form_update2
+	std SP_UPDATEP,y
+1	ldd #sp_form_img
+	std SP_FRAMEP,y
+	jmp sp_update_rtn
+
+sp_form_update2
+	ldd SP_FRAMEP,y
+	addd #384
+	cmpd #sp_form_img+3*384
+	bhs 1b
+	std SP_FRAMEP,y
+	jmp sp_update_rtn
+	
 	; on hit check if player has destroyed whole formation
 sp_form_hit
 	dec en_form_count
@@ -213,32 +240,52 @@ bonus_form
 ; standard explosion
 
 sp_std_explosion
-	fdb sp_remove		; offscreen handler
-	fdb 0				; explosion sound n/a
-	fcb 0				; score n/a
-	fdb sp_rts			; update handler n/a
+1	fdb sp_remove		; offscreen handler
+	fdb 0			; explosion sound n/a
+	fcb 0			; score n/a
 	fdb sp_dptr_rtn		; destruction code n/a
-	fdb sp_rts			; missile hit n/a
+	fdb sp_rts		; missile hit n/a
+	assert (*-1b) == SP_DESC_SIZE, "sp_std_explosion wrong size"
+
+sp_plyr_expl_update
+	ldu #sp_player_expl_frames
+	bra 1f
+sp_std_expl_update
+	ldu #sp_expl_frames
+1	stu SP_DATA,y
+	ldd ,u
+	std SP_FRAMEP,y
+	ldd #sp_std_expl_update2
+	std SP_UPDATEP,y
+	jmp sp_update_rtn
+
+sp_std_expl_update2
+	ldu SP_DATA,y
+	ldd ,u++
+	lbeq sp_remove
+	stu SP_DATA,y
+	std SP_FRAMEP,y
+	jmp sp_update_rtn
 
 ;----------------------------------------------------------
 ; boss
 
 	section "DPVARS"
 
-boss_sprite			rmb 2	; address of first boss sprite
+boss_sprite		rmb 2	; address of first boss sprite
 boss_sprite_last	rmb 2	; address of last boss sprite
-boss_hit			rmb 1	; flag that boss has been hit by player missile
+boss_hit		rmb 1	; flag that boss has been hit by player missile
 
 
 	section "CODE"
 
 sp_boss_desc
-	fdb sp_boss_offscreen	; offscreen handler
-	fdb SND_EXPL2			; explosion sound
-	fcb 0					; score n/a
-	fdb sp_rts				; update handler n/a
-	fdb sp_dptr_rtn			; destruction code n/a
+1	fdb sp_boss_offscreen	; offscreen handler
+	fdb SND_EXPL2		; explosion sound
+	fcb 0			; score n/a
+	fdb sp_dptr_rtn		; destruction code n/a
 	fdb sp_boss_on_missile	; missile hit code
+	assert (*-1b) == SP_DESC_SIZE, "sp_boss_desc wrong size"
 
 
 ; initialise boss just off edge of screen behind player
@@ -260,7 +307,7 @@ sp_boss_init
 	std SP_XORD,u
 	ldd 2,x
 	std SP_YORD,u
-	ldd #sp_boss_frames1
+	ldd #sp_boss_img
 	std SP_FRAMEP,u
 	stu boss_sprite_last
 
@@ -270,7 +317,7 @@ sp_boss_init
 	std SP_XORD,u
 	ldd 2,x
 	std SP_YORD,u
-	ldd #sp_boss_frames2
+	ldd #sp_boss_img+384
 	std SP_FRAMEP,u
 
 	bsr sp_boss_init_helper
@@ -279,7 +326,7 @@ sp_boss_init
 	ldd 2,x
 	addd #12*32
 	std SP_YORD,u
-	ldd #sp_boss_frames3
+	ldd #sp_boss_img+2*384
 	std SP_FRAMEP,u
 
 	bsr sp_boss_init_helper
@@ -289,7 +336,7 @@ sp_boss_init
 	ldd 2,x
 	addd #12*32
 	std SP_YORD,u
-	ldd #sp_boss_frames4
+	ldd #sp_boss_img+3*384
 	std SP_FRAMEP,u
 	lda player_dir
 	sta SP_DATA2,u
@@ -318,6 +365,8 @@ sp_boss_init_helper
 	clr SP_COLFLG,u		; init collision flag
 	ldd #sp_boss_desc	; additional descriptor for boss
 	std SP_DESC,u		;
+	ldd #sp_update_rtn	;
+	std SP_UPDATEP,u	;
 	rts
 
 
@@ -561,7 +610,7 @@ sp_expl_frames
 	fdb sp_explosion_img+1*384
 	fdb sp_explosion_img+2*384
 	fdb sp_explosion_img+3*384
-	fdb 0,0
+	fdb 0
 
 sp_player_expl_frames
 	fdb sp_explosion_img+3*384
