@@ -5,10 +5,11 @@
 
 	section "DPVARS"
 
-en_std_max		rmb 1	; max number of standard enemies
+en_std_max	rmb 1	; max number of standard enemies
 en_spawn_count	rmb 1	; counts number of standard enemies spawned vs formations
 en_form_count	rmb 1	; counts number of enemies remaining to be in formation
-en_count		rmb 1	; counts number of enemies destroyed
+en_count	rmb 1	; counts number of enemies destroyed
+en_spawn_ptr	rmb 2	; points to spawn coords
 
 
 	section "CODE"
@@ -40,9 +41,7 @@ en_sprite_init_form
 	clr SP_MISFLG,u
 	clr SP_COLFLG,u
 
-	ldd #sp_form_enemy
-	std SP_DESC,u
-	ldd #sp_form_update
+	ldd #sp_form_update_init
 	std SP_UPDATEP,u
 9	rts
 
@@ -100,63 +99,20 @@ en_spawn
 	suba #2
 	cmpa sp_count
 	blo 9f
-
-	;lda sp_count			; enough free sprites?
-	;cmpa #CFG_NUM_SPRITES-2	;
-	;bhi 9f					; not enough - rts
-
-	;lda [rnd_ptr]
-	;anda #8
-	;suba #4
-	;leax a,x
-	lsrb
-	bsr en_sprite_init_std
-	ldd -8,x
-	std SP_XORD,u
-	ldd -6,x
-	std SP_YORD,u
-	ldb SP_DATA,u
-	bsr en_sprite_init_std
-	ldd 8,x
-	std SP_XORD,u
-	ldd 10,x
-	std SP_YORD,u
-
+	stx en_spawn_ptr
 	dec en_spawn_count
-
-9	rts
-
-
+	bsr en_sprite_init_std
 en_sprite_init_std
 	ldu sp_free_list	; get next free sprite
-	stb SP_DATA,u		; angle
-	ldb #-1
-	stb SP_MISFLG,u		; trackable
-	clr SP_COLFLG,u
-	lda #16
-	;lda [rnd_ptr]
-	;anda #1
-	;inca				; number of updates spent steering towards player
-	sta SP_DATA2,u		;
-	lda #4
-	sta SP_DATA3,u		;
 	ldd SP_LINK,u		; remove sprite from free list
 	std sp_free_list	;
 	ldd sp_pcol_list	; add sprite to collidable list
 	std SP_LINK,u		;
 	stu sp_pcol_list	;
 	inc sp_count
-	ldd ,y
-	std SP_XVEL,u
-	ldd 2,y
-	std SP_YVEL,u
-	ldd #sp_std_img
-	std SP_FRAMEP,u
-	ldd #sp_std_enemy
-	std SP_DESC,u
-	ldd #sp_std_enemy_update
+	ldd #sp_std_enemy_update_init
 	std SP_UPDATEP,u
-	rts
+9	rts
 
 
 ;-----------------------------------------------------------

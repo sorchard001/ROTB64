@@ -532,9 +532,7 @@ boss_explosion
 	clrb
 	std SP_XVEL,u
 	std SP_YVEL,u
-	ldd #sp_std_explosion
-	std SP_DESC,u
-	ldd #sp_plyr_expl_update
+	ldd #sp_plyr_expl_update_init
 	std SP_UPDATEP,u
 1	rts
 

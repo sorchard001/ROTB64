@@ -140,10 +140,8 @@ player_explosion
 	clrb
 	subd scroll_y
 	std SP_YVEL,u
-	ldd #sp_player_expl_frames
-	std SP_FRAMEP,u
-	ldd #sp_std_explosion
-	std SP_DESC,u
+	ldd #sp_plyr_expl_update_init
+	std SP_UPDATEP,u
 	rts
 
 ;*************************************

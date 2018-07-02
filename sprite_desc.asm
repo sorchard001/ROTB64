@@ -17,7 +17,7 @@ SP_YVEL		rmb 2	; y velocity * 32
 SP_FRAMEP	rmb 2	; pointer to current frame
 SP_MISFLG	rmb 1	; missile flag: 0 = not-trackable, -ve = trackable, +ve = tracking
 SP_COLFLG	rmb 1
-SP_UPDATEP	rmb 2
+SP_UPDATEP	rmb 2	; pointer to update code
 SP_DESC		rmb 2	; pointer to additional (constant) info
 SP_DATA		rmb 1	; type dependent data
 SP_DATA2	rmb 1	; type dependent data
@@ -100,12 +100,44 @@ dy	equ temp1
 sp_dir	equ temp2
 
 
+sp_std_enemy_update_init
+	ldx en_spawn_ptr
+	ldd 8,x
+	std SP_XORD,y
+	ldd 10,x
+	std SP_YORD,y
+	leax -16,x
+	stx en_spawn_ptr
+	ldb player_dir
+	andb #30
+	lslb
+	stb SP_DATA,y		; direction
+	ldx #form_enemy_vel_table
+	abx
+	ldd ,x
+	std SP_XVEL,y
+	ldd 2,x
+	std SP_YVEL,y
+	dec SP_MISFLG,y		; missile target
+	clr SP_COLFLG,y		;
+	lda #16			; number of updates spent chasing player
+	sta SP_DATA2,y		;
+	lda #4			; update frequency
+	sta SP_DATA3,y		;
+	ldd #sp_std_img
+	std SP_FRAMEP,y
+	ldd #sp_std_enemy
+	std SP_DESC,y
+	ldd #sp_std_enemy_update
+	std SP_UPDATEP,y
+	jmp sp_update_sp4x12_next
+
+
 sp_std_enemy_update
 	dec SP_DATA3,y
 	bne 9f
 	lda #4
 	sta SP_DATA3,y
-
 	lda #4		; chase player
 	dec SP_DATA2,y
 	bpl 1f
@@ -153,7 +185,7 @@ sp_std_enemy_update
 	;beq sp_rts
 	bne 1f
 	tsta
-	lbpl sp_update_rtn
+	lbpl sp_update_sp4x12
 	bra 3f
 1	bpl 1f
 	nega
@@ -172,7 +204,7 @@ sp_std_enemy_update
 	ldd 2,x
 	std SP_YVEL,y
 
-9	jmp sp_update_rtn
+9	jmp sp_update_sp4x12
 
 sp_rts
 	rts
@@ -190,20 +222,21 @@ sp_form_enemy
 	fdb sp_rts		; missile hit n/a
 	assert (*-1b) == SP_DESC_SIZE, "sp_form_enemy wrong size"
 
-sp_form_update
-	ldd #sp_form_update2
+sp_form_update_init
+	ldd #sp_form_enemy
+	std SP_DESC,y
+	ldd #sp_form_update
 	std SP_UPDATEP,y
-1	ldd #sp_form_img
-	std SP_FRAMEP,y
-	jmp sp_update_rtn
+	bra 1f
 
-sp_form_update2
+sp_form_update
 	ldd SP_FRAMEP,y
 	addd #384
 	cmpd #sp_form_img+3*384
-	bhs 1b
-	std SP_FRAMEP,y
-	jmp sp_update_rtn
+	blo 2f
+1	ldd #sp_form_img
+2	std SP_FRAMEP,y
+	jmp sp_update_sp4x12
 	
 	; on hit check if player has destroyed whole formation
 sp_form_hit
@@ -247,25 +280,25 @@ sp_std_explosion
 	fdb sp_rts		; missile hit n/a
 	assert (*-1b) == SP_DESC_SIZE, "sp_std_explosion wrong size"
 
-sp_plyr_expl_update
+sp_plyr_expl_update_init
 	ldu #sp_player_expl_frames
 	bra 1f
-sp_std_expl_update
+sp_std_expl_update_init
 	ldu #sp_expl_frames
 1	stu SP_DATA,y
-	ldd ,u
-	std SP_FRAMEP,y
-	ldd #sp_std_expl_update2
+	ldd #sp_std_explosion
+	std SP_DESC,y
+	ldd #sp_std_expl_update
 	std SP_UPDATEP,y
-	jmp sp_update_rtn
+	jmp sp_update_sp4x12_next
 
-sp_std_expl_update2
+sp_std_expl_update
 	ldu SP_DATA,y
 	ldd ,u++
 	lbeq sp_remove
 	stu SP_DATA,y
 	std SP_FRAMEP,y
-	jmp sp_update_rtn
+	jmp sp_update_sp4x12
 
 ;----------------------------------------------------------
 ; boss
@@ -365,7 +398,7 @@ sp_boss_init_helper
 	clr SP_COLFLG,u		; init collision flag
 	ldd #sp_boss_desc	; additional descriptor for boss
 	std SP_DESC,u		;
-	ldd #sp_update_rtn	;
+	ldd #sp_update_sp4x12	;
 	std SP_UPDATEP,u	;
 	rts
 
@@ -607,7 +640,10 @@ sp_expl_frames
 	fdb sp_explosion_img
 	fdb sp_explosion_img+1*384
 	fdb sp_explosion_img
+	fdb sp_explosion_img+2*384
+	fdb sp_explosion_img
 	fdb sp_explosion_img+1*384
+	fdb sp_explosion_img+2*384
 	fdb sp_explosion_img+2*384
 	fdb sp_explosion_img+3*384
 	fdb 0
@@ -624,23 +660,4 @@ sp_player_expl_frames
 	fdb sp_explosion_img+3*384
 	fdb 0,0
 
-sp_std_frames
-	fdb sp_std_img
-	fdb 0, sp_std_frames
 
-sp_form_frames
-	fdb sp_form_img
-	fdb sp_form_img+1*384
-	fdb sp_form_img+2*384
-	fdb sp_form_img+3*384
-	fdb 0, sp_form_frames
-
-
-sp_boss_frames1
-	fdb sp_boss_img,0,sp_boss_frames1
-sp_boss_frames2
-	fdb sp_boss_img+384,0,sp_boss_frames2
-sp_boss_frames3
-	fdb sp_boss_img+384*2,0,sp_boss_frames3
-sp_boss_frames4
-	fdb sp_boss_img+384*3,0,sp_boss_frames4

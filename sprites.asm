@@ -1,6 +1,6 @@
 ;**********************************************************
 ; ROTB - Return of the Beast
-; Copyright 2014-2017 S. Orchard
+; Copyright 2014-2018 S. Orchard
 ;**********************************************************
 
 	section "DPVARS"
@@ -8,11 +8,11 @@
 sp_free_list	rmb 2	; ptr to list of unused sprites
 sp_pcol_list	rmb 2	; ptr to list of collidable sprites
 sp_ncol_list	rmb 2	; ptr to list of non-collidable sprites
-sp_prev_ptr		rmb 2	; points to previous sprite in current list
-sp_count		rmb 1	; number of active sprites
+sp_prev_ptr	rmb 2	; points to previous sprite in current list
+sp_count	rmb 1	; number of active sprites
 sp_col_check	rmb 2	; pointer to collision check code (or bypass)
 
-kill_count		rmb 1	; temporary for demo sound fx
+kill_count	rmb 1	; temporary for demo sound fx
 
 ;**********************************************************
 
@@ -28,14 +28,14 @@ sp_spare	rmb SP_SIZE * 2
 
 	section "SPRITE_DATA"
 
-		org CFG_SPRITE_DATA
+	org CFG_SPRITE_DATA
 
 ; mask + image requires 96 bytes (4x12 sprite)
 
-sp_std_img			rmb 96*4
+sp_std_img		rmb 96*4
 sp_explosion_img	rmb 96*4*4
-sp_form_img			rmb 96*4*4
-sp_boss_img			rmb 96*4*4
+sp_form_img		rmb 96*4*4
+sp_boss_img		rmb 96*4*4
 
 ;**********************************************************
 
@@ -65,16 +65,16 @@ sp_init_all
 
 ; update all collidable sprites (e.g. enemies)
 sp_update_collidable
-	ldd #sp_update_sp4x12_check_col		; enable player bullet collision detect
-	std sp_col_check					;
-	ldy #sp_pcol_list-SP_LINK			; initial 'previous' sprite
+	ldd #sp_update_sp4x12_check_col	; enable player bullet collision detect
+	std sp_col_check		;
+	ldy #sp_pcol_list-SP_LINK	; initial 'previous' sprite
 	jmp sp_update_sp4x12_next
 
 ; update all non-collidable sprites (e.g. explosions)
 sp_update_non_collidable
-	ldd #sp_update_sp4x12_next		; disable player bullet collision detect
-	std sp_col_check				;
-	ldy #sp_ncol_list-SP_LINK		; initial 'previous' sprite
+	ldd #sp_update_sp4x12_next	; disable player bullet collision detect
+	std sp_col_check		;
+	ldy #sp_ncol_list-SP_LINK	; initial 'previous' sprite
 	jmp sp_update_sp4x12_next
 
 ; nb. initial 'previous' sprite comes into play if the first sprite is
@@ -88,8 +88,8 @@ SCRN_HGT equ TD_TILEROWS*8
 pb_col_hit_mac macro
 pb_hit_\1
   if \1 < CFG_NUM_PB
-	clr pb_data0+\1*PB_SIZE				; disable bullet
-	ldu #pb_col_data+\1*PB_COL_SIZE		; point to bullet collision data
+	clr pb_data0+\1*PB_SIZE		; disable bullet
+	ldu #pb_col_data+\1*PB_COL_SIZE	; point to bullet collision data
   endif
   if \1 < (CFG_NUM_PB - 1)
 	bra pb_hit
@@ -107,7 +107,7 @@ pb_hit_\1
 
 
 pb_hit
-	incb				; set collision flag
+	incb			; set collision flag
 	clr PB_COL_SAVE,u	; disable collision detect
 	ldx #pb_zero		; for this bullet
 	stx PB_COL_ADDR,u	;
@@ -148,18 +148,11 @@ _pb_col_data
 	tstb
 	beq sp_update_sp4x12_next	; no hit
 
-1	ldu SP_DESC,y				; point to additional sprite info
+1	ldu SP_DESC,y			; point to additional sprite info
 	lda SP_SCORE,u
 	beq sp_update_sp4x12_next	; no score means don't destroy sprite
-	bsr sp_update_sp4x12_destroy_b
-	ldy SP_LINK,x				; next sprite
-	bne sp_update_sp4x12		;
-	rts
 
-;sp_update_sp4x12_destroy
-;	ldu SP_DESC,y		; point to additional sprite info
-;	lda SP_SCORE,u
-sp_update_sp4x12_destroy_b
+_sp_update_sp4x12_destroy
 	adda score0
 	daa
 	sta score0
@@ -172,19 +165,16 @@ sp_update_sp4x12_destroy_b
 	daa
 	sta score2
 
-	clr SP_MISFLG,y
-
-	ldx SP_EXPL,u			; explosion sound effect
-1	jsr snd_start_fx		;
+	clr SP_MISFLG,y		; stop missiles tracking this sprite
+	ldx SP_EXPL,u		; explosion sound effect
+1	jsr snd_start_fx	;
 
 	; turn sprite into explosion
-	ldd #sp_std_explosion
-	std SP_DESC,y
-	ldd #sp_std_expl_update
+	ldd #sp_std_expl_update_init
 	std SP_UPDATEP,y
 
 	jmp [SP_DPTR,u]		; additional code to run on destruction
-sp_dptr_rtn				; return from destruction routine
+sp_dptr_rtn			; return from destruction routine
 
 	ldx sp_prev_ptr		; remove sprite from current list
 	ldd SP_LINK,y		;
@@ -193,7 +183,11 @@ sp_dptr_rtn				; return from destruction routine
 	std SP_LINK,y		;
 	sty sp_ncol_list	;
 
+	ldy SP_LINK,x		; next sprite
+	beq 1f
+	jmp [SP_UPDATEP,y]
 1	rts
+
 
 SND_FX_TAB	fdb SND_TONE2,SND_TONE3,SND_TONE4,SND_TONE5
 
@@ -201,14 +195,10 @@ SND_FX_TAB	fdb SND_TONE2,SND_TONE3,SND_TONE4,SND_TONE5
 sp_update_sp4x12_next
 	sty sp_prev_ptr
 	ldy SP_LINK,y
-	beq 1b				; end of list - rts
-
+	beq 1b			; end of list - rts
+	jmp [SP_UPDATEP,y]
 
 sp_update_sp4x12
-	jmp [SP_UPDATEP,y]
-sp_update_rtn
-	ldu SP_FRAMEP,y
-
 	lda #12			; default sprite height
 	sta td_count
 
@@ -220,13 +210,13 @@ sp_update_rtn
 	ldx #sp_draw_clip_table	; horizontal clip via lookup
 	lsla
 	ldx a,x
-	stx sp_clip_addr+1		; save it for later as we will run out of regs
+	stx sp_clip_addr+1	; save it for later as we will run out of regs
 
+	ldx SP_FRAMEP,y
 	andb #192	; select sprite frame to suit degree of shift required
-	clra		; multiply shift value (0-3) by size of sprite data (96)
-	leau d,u	; done here by multiplying in place by 1.5
-	lsrb
-	leau b,u
+	abx		; multiply shift value (0-3) by size of sprite data (96)
+	lsrb		; done here by multiplying in place by 1.5
+	leau b,x	;
 
 	ldd SP_YORD,y	; update y ord
 	addd SP_YVEL,y
@@ -281,7 +271,7 @@ sp_clip_addr
 	jmp >0		; jump to horizontal clip routine
 
 sp_remove
-	clr SP_MISFLG,y
+	clr SP_MISFLG,y		; stop missiles tracking this sprite
 	dec sp_count		; reduce sprite count
 	ldu sp_prev_ptr		; remove sprite from current list
 	ldd SP_LINK,y		;
@@ -290,8 +280,10 @@ sp_remove
 	std SP_LINK,y		;
 	sty sp_free_list	;
 	ldy SP_LINK,u		; next sprite
-	lbne sp_update_sp4x12
-	rts
+	beq 1f
+	jmp [SP_UPDATEP,y]
+	;lbne sp_update_sp4x12
+1	rts
 
 sp_offscreen
 	ldu SP_DESC,y		; pointer to descriptor
