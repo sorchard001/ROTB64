@@ -6,8 +6,8 @@ import math
 XOFF = 64
 YOFF = 44
 # radial size of screen in pixels
-RX = 64
-RY = 44
+RX = 64-1
+RY = 44-1
 # scale factor to convert pixels to coords
 SCX = 64
 SCY = 32

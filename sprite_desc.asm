@@ -95,34 +95,32 @@ sp_warp
 	jmp snd_start_fx_force
 
 
-dx	equ temp0
-dy	equ temp1
-sp_dir	equ temp2
-
 
 sp_std_enemy_update_init
-	ldx en_spawn_ptr
-	ldd 8,x
-	std SP_XORD,y
-	ldd 10,x
-	std SP_YORD,y
-	leax -16,x
-	stx en_spawn_ptr
 	ldb player_dir
 	andb #30
 	lslb
 	stb SP_DATA,y		; direction
-	ldx #form_enemy_vel_table
+	lslb
+	ldx #form_coords
 	abx
+	ldb en_spawn_param
+	leax b,x
+	addb #16
+	stb en_spawn_param
 	ldd ,x
-	std SP_XVEL,y
+	std SP_XORD,y
 	ldd 2,x
+	std SP_YORD,y
+	clra
+	clrb
+	std SP_XVEL,y
 	std SP_YVEL,y
 	dec SP_MISFLG,y		; missile target
 	clr SP_COLFLG,y		;
 	lda #16			; number of updates spent chasing player
 	sta SP_DATA2,y		;
-	lda #4			; update frequency
+	lda #1			; 1st update next frame
 	sta SP_DATA3,y		;
 	ldd #sp_std_img
 	std SP_FRAMEP,y
@@ -132,6 +130,10 @@ sp_std_enemy_update_init
 	std SP_UPDATEP,y
 	jmp sp_update_sp4x12_next
 
+
+dx	equ temp0
+dy	equ temp1
+sp_dir	equ temp2
 
 sp_std_enemy_update
 	dec SP_DATA3,y
@@ -180,19 +182,20 @@ sp_std_enemy_update
 	addb #1*8	;
 
 	; determine which direction to rotate
-1	lda sp_dir
-	subb SP_DATA,y
-	;beq sp_rts
-	bne 1f
-	tsta
-	lbpl sp_update_sp4x12
-	bra 3f
-1	bpl 1f
-	nega
-	negb
-1	cmpb #32
-	blo 3f
-	nega
+1	lda sp_dir	;
+	subb SP_DATA,y	; difference in directions
+	bne 1f		; not pointing at player, so turn
+	tsta		; chasing or running away?
+	bmi 3f		; running away, so turn 
+	clra		; direction is correct, don't turn
+	bra 3f		;
+
+1	bpl 1f		; select the faster turn direction
+	nega		;
+	negb		;
+1	cmpb #32	;
+	blo 3f		;
+	nega		;
 
 3	adda SP_DATA,y
 	anda #$3c
@@ -223,6 +226,30 @@ sp_form_enemy
 	assert (*-1b) == SP_DESC_SIZE, "sp_form_enemy wrong size"
 
 sp_form_update_init
+	ldb player_dir
+	andb #30
+	lslb
+	ldu #form_enemy_vel_table
+	leau b,u
+	lslb
+	ldx #form_coords
+	abx
+	ldb en_spawn_param
+	leax b,x
+	addb #4
+	bne 1f			; create gap in middle of formation
+	addb #4			; where player is facing
+1	stb en_spawn_param
+	ldd ,x
+	std SP_XORD,y
+	ldd 2,x
+	std SP_YORD,y
+	ldd ,u
+	std SP_XVEL,y
+	ldd 2,u
+	std SP_YVEL,y
+	;clr SP_MISFLG,y
+	clr SP_COLFLG,y
 	ldd #sp_form_enemy
 	std SP_DESC,y
 	ldd #sp_form_update
