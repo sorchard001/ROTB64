@@ -1,6 +1,6 @@
 ;**********************************************************
 ; ROTB - Return of the Beast
-; Copyright 2014-2017 S. Orchard
+; Copyright 2014-2018 S. Orchard
 ;**********************************************************
 
 
@@ -660,12 +660,10 @@ task_table_normal
 	fdb draw_lives
 	fdb draw_lives
 task_table_normal_rst
+	fdb draw_score0
 	fdb draw_score2
 	fdb draw_score1
 	fdb draw_score0
-	fdb draw_score1
- 	fdb draw_score0
-	fdb draw_score2
 	fdb en_spawn
 	fdb 0, task_table_normal_rst
 
@@ -675,30 +673,11 @@ task_table_nospawn
 	fdb draw_lives
 task_table_nospawn_rst
 	fdb check_no_sprites
-	fdb draw_score2
-	fdb draw_score1
 	fdb draw_score0
 	fdb draw_score2
 	fdb draw_score1
 	fdb draw_score0
 	fdb 0, task_table_nospawn_rst
-
-task_table_boss
-	fdb draw_lives
-	fdb draw_lives
-task_table_boss_rst
-	fdb check_no_sprites
-	fdb task_update_boss
-	fdb draw_score2
-	fdb draw_score1
-	fdb draw_score0
-	fdb check_no_sprites
-	fdb task_update_boss
-	fdb draw_score2
-	fdb draw_score1
-	fdb draw_score0
-	fdb 0, task_table_boss_rst
-
 
 task_nop
 	rts

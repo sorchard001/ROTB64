@@ -1,6 +1,6 @@
 ;**********************************************************
 ; ROTB - Return of the Beast
-; Copyright 2014-2017 S. Orchard
+; Copyright 2014-2018 S. Orchard
 ;**********************************************************
 
 
@@ -77,8 +77,6 @@ sp_std_hit
 sp_start_boss
 	ldd #fl_mode_boss
 	std mode_routine
-	ldd #task_table_boss
-	std task_ptr
 	ldx #sp_warp
 	stx on_no_sprites
 	clr boss_hit
@@ -213,6 +211,9 @@ sp_rts
 	rts
 
 
+; standard enemy velocity table
+std_enemy_vel_table
+	mac_velocity_table_180 0.8
 
 ;----------------------------------------------------------
 ; formation enemy
@@ -296,6 +297,11 @@ bonus_form
 	ldx a,x
 	jmp snd_start_fx
 
+
+; formation enemy velocity table
+form_enemy_vel_table
+	mac_velocity_table_180 1.1
+
 ;----------------------------------------------------------
 ; standard explosion
 
@@ -352,15 +358,12 @@ sp_boss_desc
 ; boss is made up of four sprites flying in formation
 ; assumes there are four free sprites
 sp_boss_init
-	ldb player_dir			; determine direction behind player
-	addb #16				;
-	andb #30				;
-	lslb					;
-	ldy #sp_boss_vel_table	; boss velocity
-	leay b,y				;
-	ldx #boss_coords		; boss coords
-	abx						;
-	stb temp0				; save direction for helper routine
+	ldb player_dir		; determine direction behind player
+	addb #16		;
+	andb #30		;
+	lslb			;
+	ldx #boss_coords	; boss coords
+	abx			;
 
 	bsr sp_boss_init_helper
 	ldd ,x
@@ -390,6 +393,8 @@ sp_boss_init
 	std SP_FRAMEP,u
 
 	bsr sp_boss_init_helper
+	ldd #sp_boss_update_inita
+	std SP_UPDATEP,u
 	ldd ,x
 	adda #3	;addd #12*64
 	std SP_XORD,u
@@ -398,8 +403,6 @@ sp_boss_init
 	std SP_YORD,u
 	ldd #sp_boss_img+3*384
 	std SP_FRAMEP,u
-	lda player_dir
-	sta SP_DATA2,u
 	dec SP_MISFLG,u		; this one can be targeted
 	stu boss_sprite		; keep address for update routines
 	rts
@@ -415,17 +418,7 @@ sp_boss_init_helper
 	std SP_LINK,u		;
 	stu sp_pcol_list	;
 	inc sp_count		; update sprite allocation count
-	lda temp0			; initial direction
-	sta SP_DATA,u		;
-	ldd ,y				; initial velocity
-	std SP_XVEL,u		;
-	ldd 2,y				;
-	std SP_YVEL,u		;
-	clr SP_MISFLG,u		; can't be targeted for missiles
-	clr SP_COLFLG,u		; init collision flag
-	ldd #sp_boss_desc	; additional descriptor for boss
-	std SP_DESC,u		;
-	ldd #sp_update_sp4x12	;
+	ldd #sp_boss_update_initb	;
 	std SP_UPDATEP,u	;
 	rts
 
@@ -435,12 +428,12 @@ sp_boss_init_helper
 ; else limit coords to just out of view.
 sp_boss_offscreen
 	lda boss_hit		; If boss has been hit then we need to
-	beq 1f				; remove sprites when they go off screen.
+	beq 1f			; remove sprites when they go off screen.
 	cmpy boss_sprite	; Wait until we're looking at first sprite in list.
-	beq 2f				;
+	beq 2f			;
 3	jmp sp_update_sp4x12_next
 1	cmpy boss_sprite_last	; Waiting for last sprite so that modified
-	bne 3b					; coords don't get overwritten by update routine
+	bne 3b			; coords don't get overwritten by update routine
 
 ; stop boss going any further than just off edge of screen
 	lda SP_XORD,y
@@ -527,30 +520,53 @@ sp_boss_update_y
 	std SP_YORD,u
 	rts
 
+
+sp_boss_update_inita
+	lda player_dir
+	sta SP_DATA2,u
+	ldx #sp_boss_update
+	bra 1f
+sp_boss_update_initb
+	lda player_dir
+	ldx #sp_update_sp4x12
+1	stx SP_UPDATEP,y
+	adda #16		;
+	anda #30		;
+	lsla			;
+	ldu #sp_boss_vel_table	; boss velocity
+	leau a,u		;	
+	sta SP_DATA,y		; initial direction
+	ldd ,u			; initial velocity
+	std SP_XVEL,y		;
+	ldd 2,u			;
+	std SP_YVEL,y		;
+	clr SP_COLFLG,y		; init collision flag
+	ldd #sp_boss_desc	; additional descriptor for boss
+	std SP_DESC,y		;
+	jmp sp_update_sp4x12_next
+
+
 ; boss behaviour:
 ; steer toward centre of screen
 ; with modification to steer behind player as they turn
-task_update_boss
-	ldu boss_sprite
-	lbeq 9f
-
+sp_boss_update
 	lda #4		; chase player
 	ldb boss_hit
 	beq 1f
 	nega		; run away
 1	sta sp_dir
 
-	ldd SP_XORD,u			; calculate distance of boss from player
+	ldd SP_XORD,y		; calculate distance of boss from player
 	subd #(PLYR_LEFT*64)
-	addd #-6*64				; adjustment to allow for size of boss
+	addd #-6*64		; adjustment to allow for size of boss
 	lslb
 	rola
 	lslb
 	rola
 	sta dx
 	ldd #(PLYR_TOP*32)
-	subd SP_YORD,u
-	subd #-6*32				; adjustment to allow for size of boss
+	subd SP_YORD,y
+	subd #-6*32		; adjustment to allow for size of boss
 	lslb
 	rola
 	lslb
@@ -560,7 +576,7 @@ task_update_boss
 	sta dy
 
 	ldb #4		; determine octant
-    lda dy		;
+	lda dy		;
 	bpl 1f		; y >= 0
 	neg dx		; rotate 180 cw
 	neg dy		;
@@ -579,7 +595,7 @@ task_update_boss
 
 	; determine which direction to rotate
 1	lda sp_dir
-	subb SP_DATA,u
+	subb SP_DATA,y
 	bne 1f
 	tsta
 	bpl 9f		; chasing player so done if direction equal
@@ -609,23 +625,23 @@ task_update_boss
 
 	; modification #2: input a proportion of player steering
 6	sta temp0
-	lda SP_DATA2,u
+	lda SP_DATA2,y
 	suba player_dir
 	asra
 	adda temp0
 	ldb player_dir	; save player_dir for next time
-	stb SP_DATA2,u	;
+	stb SP_DATA2,y	;
 
-	adda SP_DATA,u
+	adda SP_DATA,y
 	anda #$3f
-	sta SP_DATA,u	; new direction
+	sta SP_DATA,y	; new direction
 	anda #$3c
 	leax a,x
 	ldd ,x
-	std SP_XVEL,u
+	std SP_XVEL,y
 	ldd 2,x
-	std SP_YVEL,u
-	ldu SP_LINK,u
+	std SP_YVEL,y
+	ldu SP_LINK,y
 	ldd ,x
 	std SP_XVEL,u
 	ldd 2,x
@@ -641,7 +657,7 @@ task_update_boss
 	ldd 2,x
 	std SP_YVEL,u
 
-9	rts
+9	jmp sp_update_sp4x12
 
 
 ; code to run when missile hits boss

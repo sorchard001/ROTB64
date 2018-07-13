@@ -76,14 +76,6 @@ en_sprite_init
 
 ;-----------------------------------------------------------
 
-; standard enemy velocity table
-std_enemy_vel_table
-	mac_velocity_table_180 0.8
-
-; formation enemy velocity table
-form_enemy_vel_table
-	mac_velocity_table_180 1.1
-
-
 
 	include "coords.asm"
+
