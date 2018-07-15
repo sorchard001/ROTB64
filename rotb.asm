@@ -452,9 +452,6 @@ end_level
 ;*************************************
 
 fl_mode_normal
-	; draw non-collidable sprites
-	jsr sp_update_non_collidable
-
 	; player ship
 	jsr draw_player
 
@@ -464,8 +461,13 @@ fl_mode_normal
 	; draw collidable sprites
 	jsr sp_update_collidable
 
+	; check if anything drawn on top of player
 	jsr player_collision
 
+	; draw non-collidable sprites
+	jsr sp_update_non_collidable
+
+	; update player controls
 	jsr [control_set]
 
 	; 3
@@ -486,7 +488,7 @@ fl_mode_boss
 	jsr pb_update_all
 	jsr sp_update_collidable
 	jsr player_collision
-	jsr sp_update_non_collidable		; draw explosions on top of boss
+	jsr sp_update_non_collidable
 	jsr [control_set]
 
 	lda boss_hit
@@ -497,7 +499,6 @@ fl_mode_boss
 	beq 1f
 
 	bsr boss_explosion
-
 
 	; 5
 1	lda #1

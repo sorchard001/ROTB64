@@ -74,18 +74,6 @@ sp_std_hit
 1	jmp sp_dptr_rtn		; return to caller
 
 
-sp_start_boss
-	ldd #fl_mode_boss
-	std mode_routine
-	ldx #sp_warp
-	stx on_no_sprites
-	clr boss_hit
-	ldd #-64*6
-	std missile_offset_x
-	ldd #-32*6
-	std missile_offset_y
-	jmp sp_boss_init
-
 sp_warp
 	ldd #fl_mode_warp_out
 	std mode_routine
@@ -357,69 +345,27 @@ sp_boss_desc
 ; initialise boss just off edge of screen behind player
 ; boss is made up of four sprites flying in formation
 ; assumes there are four free sprites
-sp_boss_init
-	ldb player_dir		; determine direction behind player
-	addb #16		;
-	andb #30		;
-	lslb			;
-	ldx #boss_coords	; boss coords
-	abx			;
+sp_start_boss
+	ldd #fl_mode_boss
+	std mode_routine
+	ldx #sp_warp
+	stx on_no_sprites
+	clr boss_hit
+	ldd #-64*6
+	std missile_offset_x
+	ldd #-32*6
+	std missile_offset_y
+	ldd #sp_boss_init_params
+	std en_spawn_param
 
-	bsr sp_boss_init_helper
-	ldd ,x
-	std SP_XORD,u
-	ldd 2,x
-	std SP_YORD,u
-	ldd #sp_boss_img
-	std SP_FRAMEP,u
+	ldx #sp_boss_update_initb	;
+	jsr en_new_sprite
 	stu boss_sprite_last
-
-	bsr sp_boss_init_helper
-	ldd ,x
-	adda #3	;addd #12*64
-	std SP_XORD,u
-	ldd 2,x
-	std SP_YORD,u
-	ldd #sp_boss_img+384
-	std SP_FRAMEP,u
-
-	bsr sp_boss_init_helper
-	ldd ,x
-	std SP_XORD,u
-	ldd 2,x
-	addd #12*32
-	std SP_YORD,u
-	ldd #sp_boss_img+2*384
-	std SP_FRAMEP,u
-
-	bsr sp_boss_init_helper
-	ldd #sp_boss_update_inita
-	std SP_UPDATEP,u
-	ldd ,x
-	adda #3	;addd #12*64
-	std SP_XORD,u
-	ldd 2,x
-	addd #12*32
-	std SP_YORD,u
-	ldd #sp_boss_img+3*384
-	std SP_FRAMEP,u
-	dec SP_MISFLG,u		; this one can be targeted
+	jsr en_new_sprite
+	jsr en_new_sprite
+	ldx #sp_boss_update_inita
+	jsr en_new_sprite
 	stu boss_sprite		; keep address for update routines
-	rts
-
-
-; create one of the four sprites that make up the boss
-; y points to velocity
-sp_boss_init_helper
-	ldu sp_free_list	; get next free sprite
-	ldd SP_LINK,u		; remove sprite from free list
-	std sp_free_list	;
-	ldd sp_pcol_list	; add sprite to collidable list
-	std SP_LINK,u		;
-	stu sp_pcol_list	;
-	inc sp_count		; update sprite allocation count
-	ldd #sp_boss_update_initb	;
-	std SP_UPDATEP,u	;
 	rts
 
 
@@ -522,29 +468,49 @@ sp_boss_update_y
 
 
 sp_boss_update_inita
-	lda player_dir
-	sta SP_DATA2,u
+	dec SP_MISFLG,y		; main sprite can be targeted
+	ldb player_dir
+	stb SP_DATA2,y
 	ldx #sp_boss_update
 	bra 1f
 sp_boss_update_initb
-	lda player_dir
+	ldb player_dir
 	ldx #sp_update_sp4x12
 1	stx SP_UPDATEP,y
-	adda #16		;
-	anda #30		;
-	lsla			;
-	ldu #sp_boss_vel_table	; boss velocity
-	leau a,u		;	
-	sta SP_DATA,y		; initial direction
-	ldd ,u			; initial velocity
+	addb #16		; add 180 degrees to player dir
+	lslb			;
+	andb #$3c		;
+	ldx #boss_coords	; boss init coords table
+	abx			;
+	lslb			;
+	lslb			;
+	stb SP_DATA,y		; initial direction
+	clra			; start with zero velocity
+	clrb			;
 	std SP_XVEL,y		;
-	ldd 2,u			;
 	std SP_YVEL,y		;
-	clr SP_COLFLG,y		; init collision flag
+	sta SP_COLFLG,y		; init collision flag
+	ldu en_spawn_param
+	pulu d
+	addd ,x
+	std SP_XORD,y
+	pulu d
+	addd 2,x
+	std SP_YORD,y
+	pulu d
+	std SP_FRAMEP,y
+	stu en_spawn_param
 	ldd #sp_boss_desc	; additional descriptor for boss
 	std SP_DESC,y		;
 	jmp sp_update_sp4x12_next
 
+; initialisation table for each sprite making up the boss
+; contains coord offsets and graphics address
+sp_boss_init_params
+	fdb 12*64, 12*32, sp_boss_img+3*384
+	fdb 0,     12*32, sp_boss_img+2*384
+	fdb 12*64, 0,     sp_boss_img+384
+	fdb 0,     0,     sp_boss_img
 
 ; boss behaviour:
 ; steer toward centre of screen
@@ -575,12 +541,12 @@ sp_boss_update
 	rola
 	sta dy
 
-	ldb #4		; determine octant
+	ldb #16		; determine octant
 	lda dy		;
 	bpl 1f		; y >= 0
 	neg dx		; rotate 180 cw
 	neg dy		;
-	addb #4*8	;
+	addb #4*32	;
 1	lda dx		;
 	bpl 1f		; x >= 0
 	nega		; rotate 90 cw
@@ -588,24 +554,21 @@ sp_boss_update
 	stx dx    	;  just need to swap dx & dy
 	sta dy		;
 	lda dx		;
-	addb #2*8	;
+	addb #2*32	;
 1	cmpa dy		;
 	bhs 1f		; x >= y
-	addb #1*8	;
+	addb #1*32	;
 
 	; determine which direction to rotate
-1	lda sp_dir
-	subb SP_DATA,y
-	bne 1f
-	tsta
-	bpl 9f		; chasing player so done if direction equal
-	bra 3f
-1	bpl 1f
-	nega
-	negb
-1	cmpb #32
-	blo 3f
-	nega
+1	lda sp_dir	;
+	subb SP_DATA,y	; calc difference in directions
+	bne 1f		; direction not equal
+	tsta		; chasing or fleeing?
+	bmi 3f		; fleeing, so need to turn
+	clra		; chasing, so no need to turn
+	bra 3f		;
+1	bpl 3f		; turning in correct direction
+	nega		; turn the other way
 
 	; modification #1: slow down boss when nearer to player
 3	ldx #sp_boss_vel_table
@@ -621,20 +584,22 @@ sp_boss_update
 	bhi 6f
 	leax 64,x		; reduced velocity when nearer to player
 	asra			; also reduced turn rate
-	asra			;
+	;asra			;
 
 	; modification #2: input a proportion of player steering
 6	sta temp0
 	lda SP_DATA2,y
 	suba player_dir
-	asra
+	lsla
+	lsla
 	adda temp0
 	ldb player_dir	; save player_dir for next time
 	stb SP_DATA2,y	;
 
 	adda SP_DATA,y
-	anda #$3f
 	sta SP_DATA,y	; new direction
+	lsra
+	lsra
 	anda #$3c
 	leax a,x
 	ldd ,x
