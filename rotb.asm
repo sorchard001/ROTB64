@@ -255,6 +255,7 @@ code_entry
 
 	include "grfx/tiledata.asm"
 	include "grfx/sp_test.asm"
+	include "grfx/sp_std2.asm"
 	include "grfx/sp_explosion.asm"
 	include "grfx/sp_flap_2.asm"
 	include "grfx/sp_boss.asm"

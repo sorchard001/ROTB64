@@ -34,7 +34,7 @@ sp_spare	rmb SP_SIZE * 2
 
 sp_std_img		rmb 96*4
 sp_explosion_img	rmb 96*4*4
-sp_form_img		rmb 96*4*4
+sp_form_img
 sp_boss_img		rmb 96*4*4
 
 ;**********************************************************
@@ -459,111 +459,152 @@ sp_draw_sp4x12_clip_h1_r
 
 sp_unpack
 
-	ldu #sp_test
-	ldy #sp_std_img
+	ldu #sp_std_ps_params
 	bsr sp_copy_3x12_to_4x12
 
-	ldu #sp_explosion
-	ldy #sp_explosion_img
-	bsr sp_copy_3x12_to_4x12
-	bsr sp_copy_3x12_to_4x12
-	bsr sp_copy_3x12_to_4x12
-	bsr sp_copy_3x12_to_4x12
-
-	ldu #sp_flap_2
-	ldy #sp_form_img
-	bsr sp_copy_3x12_to_4x12
-	bsr sp_copy_3x12_to_4x12
-	bsr sp_copy_3x12_to_4x12
-	bsr sp_copy_3x12_to_4x12
-
-	ldu #sp_boss
-	ldy #sp_boss_img
-	bsr sp_copy_3x12_to_4x12
-	bsr sp_copy_3x12_to_4x12
-	bsr sp_copy_3x12_to_4x12
+	ldu #sp_explosion_ps_params
 	bsr sp_copy_3x12_to_4x12
 
 	rts
 
 
-; copies 3 byte wide sprite to 4 byte wide format
+; preshift params
+; frames,dest,source
+
+sp_std_ps_params
+	fcb 1
+	fdb sp_std_img,sp_std2
+	;fdb sp_std_img,sp_std
+	;fdb sp_std_img,sp_tank
+
+sp_explosion_ps_params
+	fcb 4
+	fdb sp_explosion_img,sp_explosion
+
+
+
+	section "DPVARS"
+
+sp4x12_ps_params	equ *
+sp4x12_ps_src		rmb 2
+sp4x12_ps_dst		rmb 2
+sp4x12_ps_frames	rmb 1
+sp4x12_ps_count		rmb 1
+
+
+	section "CODE"
+
 sp_copy_3x12_to_4x12
+	bsr sp4x12_ps_first_imm
+1	bsr sp4x12_ps_next
+	bne 1b
+	rts
+
+
+sp4x12_ps_first
+	ldu sp4x12_ps_params
+sp4x12_ps_first_imm
+	pulu a,x
+	ldu ,u
+	sta sp4x12_ps_frames
+	bra 5f
+
+sp4x12_ps_next
+	ldx sp4x12_ps_dst
+	lda sp4x12_ps_count	; number of shifted frames remaining
+	bne 1f			; do next shifted frame
+
+	leax 48,x
+	ldu sp4x12_ps_src	;
+	leau 36,u		; setup next source frame
+5	bsr sp4x12_ps_copy0	; copy 3x12 source to 4x12 dest
+	stu sp4x12_ps_src
+	stx sp4x12_ps_dst
+	lda #6			; setup 6 half images for copy/shift
+	sta sp4x12_ps_count
+	rts
+
+1	bsr sp4x12_ps_shift
+	lda sp4x12_ps_count
+	lsra
+	bcc 2f
+	leax 48,x
+2	stx sp4x12_ps_dst
+	dec sp4x12_ps_count
+	bne 9f
+	dec sp4x12_ps_frames
+9	rts
+
+
+; copies 3x12 mask & image to 4 byte wide format
+; u source, x destination
+sp4x12_ps_copy0
 	lda #12
 	sta td_count
 1	ldd 36,u		; image data
-	std 48,y		;
+	std 48,x		;
 	lda 38,u		;
 	clrb			; set every 4th image byte to $00
-	std 50,y		;
+	std 50,x		;
 	pulu d			; mask data
-	std ,y++		;
+	std ,x++		;
 	pulu a			;
 	ldb #$ff		; set every 4th mask byte to $ff
-	std ,y++		;
+	std ,x++		;
 	dec td_count
 	bne 1b
-
-	leau 36,u		; point to next frame
-
-	lda #3
-	sta td_count2
-2	bsr sp_copy_shift_4x12
-	leay 48,y
-	dec td_count2
-	bne 2b
-
-	leay 48,y		; point to next frame
-
 	rts
 
-; copies and shifts 4x12 sprite
-sp_copy_shift_4x12
-	lda #12
+; copies and shifts 4x12 mask & image by one pixel
+; mask & image are copy/shifted from -48,x to 48,x
+; only 6 lines processed to keep cycles below 1000
+sp4x12_ps_shift
+	lda #6
 	sta td_count
 
-1	coma			; set carry
-	ldd -48,y		; mask data
+1	coma		; set carry
+	ldd -48,x	; mask data
 	rora
 	rorb
 	asra
 	rorb
-	std 48,y
-	ldd -47,y
+	std 48,x
+	ldd -47,x
 	lsra
 	rorb
 	lsra
 	rorb
-	stb 50,y
-	ldd -46,y
+	stb 50,x
+	ldd -46,x
 	lsra
 	rorb
 	lsra
 	rorb
-	stb 51,y
+	stb 51,x
 
-	ldd ,y		; image data
+	ldd ,x		; image data
 	lsra
 	rorb
 	lsra
 	rorb
-	std 96,y
-	ldd 1,y
+	std 96,x
+	ldd 1,x
 	lsra
 	rorb
 	lsra
 	rorb
-	stb 98,y
-	ldd 2,y
+	stb 98,x
+	ldd 2,x
 	lsra
 	rorb
 	lsra
 	rorb
-	stb 99,y
+	stb 99,x
 
-	leay 4,y
+	leax 4,x
 
 	dec td_count
 	bne 1b
 
 	rts
+

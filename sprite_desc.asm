@@ -44,18 +44,16 @@ SP_DESC_SIZE	equ *	; size of data structure
 
 	section "CODE"
 
-; constant descriptor info for sprites
-
 ;----------------------------------------------------------
 ; standard enemy
 
-sp_std_enemy
+sp_std_desc
 1	fdb sp_remove		; offscreen handler
 	fdb SND_EXPL_S		; explosion sound
 	fcb 1			; score 10
 	fdb sp_std_hit		; on destroy
 	fdb sp_rts		; missile hit n/a
-	assert (*-1b) == SP_DESC_SIZE, "sp_std_enemy wrong_size"
+	assert (*-1b) == SP_DESC_SIZE, "sp_std_desc wrong_size"
 
 	; on hit check if player has destroyed enough enemies
 sp_std_hit
@@ -82,7 +80,7 @@ sp_warp
 
 
 
-sp_std_enemy_update_init
+sp_std_update_init
 	ldb player_dir
 	andb #30
 	lslb
@@ -110,9 +108,9 @@ sp_std_enemy_update_init
 	sta SP_DATA3,y		;
 	ldd #sp_std_img
 	std SP_FRAMEP,y
-	ldd #sp_std_enemy
+	ldd #sp_std_desc
 	std SP_DESC,y
-	ldd #sp_std_enemy_update
+	ldd #sp_std_update
 	std SP_UPDATEP,y
 	jmp sp_update_sp4x12_next
 
@@ -121,7 +119,7 @@ dx	equ temp0
 dy	equ temp1
 sp_dir	equ temp2
 
-sp_std_enemy_update
+sp_std_update
 	dec SP_DATA3,y
 	bne 9f
 	lda #4
@@ -206,7 +204,7 @@ std_enemy_vel_table
 ;----------------------------------------------------------
 ; formation enemy
 
-sp_form_enemy
+sp_form_desc
 1	fdb sp_form_offscreen	; offscreen handler
 	fdb SND_EXPL_F		; explosion sound
 	fcb 2			; score 20
@@ -239,18 +237,27 @@ sp_form_update_init
 	std SP_YVEL,y
 	;clr SP_MISFLG,y
 	clr SP_COLFLG,y
-	ldd #sp_form_enemy
+	ldd #sp_form_desc
 	std SP_DESC,y
+	ldd #sp_form_img
+	std SP_FRAMEP,y
 	ldd #sp_form_update
 	std SP_UPDATEP,y
-	bra 1f
+	jmp sp_update_sp4x12_next
+
+
+sp_form_ps_params
+	fcb 3
+	fdb sp_form_img
+	fdb sp_flap_2
+
 
 sp_form_update
 	ldd SP_FRAMEP,y
 	addd #384
 	cmpd #sp_form_img+3*384
 	blo 2f
-1	ldd #sp_form_img
+	ldd #sp_form_img
 2	std SP_FRAMEP,y
 	jmp sp_update_sp4x12
 	
@@ -341,6 +348,11 @@ sp_boss_desc
 	fdb sp_boss_on_missile	; missile hit code
 	assert (*-1b) == SP_DESC_SIZE, "sp_boss_desc wrong size"
 
+sp_boss_ps_params
+	fcb 4
+	fdb sp_boss_img
+	fdb sp_boss
+
 
 ; initialise boss just off edge of screen behind player
 ; boss is made up of four sprites flying in formation
@@ -358,12 +370,14 @@ sp_start_boss
 	ldd #sp_boss_init_params
 	std en_spawn_param
 
-	ldx #sp_boss_update_initb	;
+	ldd #sp_boss_ps_params	; graphics preshift params
+	jsr en_update_ps_setup	; prepare for preshift
+	ldy #sp_boss_update_initb	; address of initialiser
 	jsr en_new_sprite
-	stu boss_sprite_last
+	stu boss_sprite_last	; keep address for removal routine
 	jsr en_new_sprite
 	jsr en_new_sprite
-	ldx #sp_boss_update_inita
+	ldy #sp_boss_update_inita	; address of initialiser
 	jsr en_new_sprite
 	stu boss_sprite		; keep address for update routines
 	rts
@@ -490,6 +504,8 @@ sp_boss_update_initb
 	std SP_XVEL,y		;
 	std SP_YVEL,y		;
 	sta SP_COLFLG,y		; init collision flag
+	ldd #sp_boss_desc
+	std SP_DESC,y
 	ldu en_spawn_param
 	pulu d
 	addd ,x
@@ -500,8 +516,6 @@ sp_boss_update_initb
 	pulu d
 	std SP_FRAMEP,y
 	stu en_spawn_param
-	ldd #sp_boss_desc	; additional descriptor for boss
-	std SP_DESC,y		;
 	jmp sp_update_sp4x12_next
 
 ; initialisation table for each sprite making up the boss
@@ -511,6 +525,7 @@ sp_boss_init_params
 	fdb 0,     12*32, sp_boss_img+2*384
 	fdb 12*64, 0,     sp_boss_img+384
 	fdb 0,     0,     sp_boss_img
+
 
 ; boss behaviour:
 ; steer toward centre of screen
@@ -571,20 +586,20 @@ sp_boss_update
 	nega		; turn the other way
 
 	; modification #1: slow down boss when nearer to player
+	; dx & dy are already positive
 3	ldx #sp_boss_vel_table
 	ldb dx
-	bpl 5f
-	negb
-5	cmpb #32
-	bhi 6f
-	ldb dy
-	bpl 5f
-	negb
-5	cmpb #32
+	cmpb dy
+	bhi 4f
+	lsrb
+	addb dy
+	bra 5f
+4	lsr dy
+	addb dy
+5	cmpb #40
 	bhi 6f
 	leax 64,x		; reduced velocity when nearer to player
 	asra			; also reduced turn rate
-	;asra			;
 
 	; modification #2: input a proportion of player steering
 6	sta temp0
