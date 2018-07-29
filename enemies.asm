@@ -12,6 +12,8 @@ en_form_count	rmb 1	; counts number of enemies remaining in formation
 en_count	rmb 1	; counts number of enemies destroyed
 en_spawn_param	rmb 2	; parameter for sprite initialisation
 en_update_ps_vec	rmb 2	; preshift sequence vector
+en_ps_sync_count rmb 1	; sync counter used to get all sprites in group
+			; to complete preshift sequence on same video frame
 
 
 	section "CODE"
@@ -124,6 +126,9 @@ en_update_ps
 ; Copy first unshifted sprite frame
 ; (Expanding from 3 to 4 byte wide format)
 en_ps_vec0
+	ldx sp4x12_ps_params	; get sync count
+	lda 5,x			;
+	sta en_ps_sync_count	;
 	ldd #en_ps_vec1
 	std en_update_ps_vec
 	jmp sp4x12_ps_first
@@ -135,12 +140,16 @@ en_ps_vec1
 	bne 9f
 	ldd #en_ps_vec2
 	std en_update_ps_vec
+	dec en_ps_sync_count	; sync count is used to ensure all sprites
+	bpl 9f			; in group exit preshift in same video frame
 	ldd SP_DATA,y
 	std SP_UPDATEP,y
 9	rts
 
 ; Final routine sets up sprite initialiser and jumps to it
 en_ps_vec2
+	dec en_ps_sync_count
+	bpl 9b
 	ldx SP_DATA,y
 	stx SP_UPDATEP,y
 	leas 2,s

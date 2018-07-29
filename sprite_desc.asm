@@ -247,9 +247,10 @@ sp_form_update_init
 
 
 sp_form_ps_params
-	fcb 3
-	fdb sp_form_img
-	fdb sp_flap_2
+	fcb 3		; number of sprites to preshift
+	fdb sp_form_img	; destination
+	fdb sp_flap_2	; source
+	fcb 4		; frame sync count
 
 
 sp_form_update
@@ -349,10 +350,10 @@ sp_boss_desc
 	assert (*-1b) == SP_DESC_SIZE, "sp_boss_desc wrong size"
 
 sp_boss_ps_params
-	fcb 4
-	fdb sp_boss_img
-	fdb sp_boss
-
+	fcb 4		; number of sprites to preshift
+	fdb sp_boss_img	; destination
+	fdb sp_boss	; source
+	fcb 0		; frame sync count
 
 ; initialise boss just off edge of screen behind player
 ; boss is made up of four sprites flying in formation
