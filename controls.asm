@@ -1,6 +1,6 @@
 ;**********************************************************
 ; ROTB - Return of the Beast
-; Copyright 2014-2017 S. Orchard
+; Copyright 2014-2018 S. Orchard
 ;**********************************************************
 
 	section "DPVARS"
@@ -98,13 +98,17 @@ control_keys
 	; LEFT
 1	bita keytable+5
 	bne 1f
-	inc player_dir
+	ldb #8
+	addb player_dir
+	stb player_dir
 	bra 2f
 
 	; RIGHT
 1	bita keytable+6
 	bne 1f
-	dec player_dir
+	ldb #-8
+	addb player_dir
+	stb player_dir
 2
 	; SPACE - FIRE
 1	lda #$20
@@ -157,7 +161,7 @@ control_joy
 	ldx #joystk_dir_table
 	lda b,x
 	bmi 5f			; joystick centred - do nothing
-	ldb #1			; set up for ccw turn
+	ldb #8			; set up for ccw turn
 	suba player_dir ; get difference in joystick & player directions
 	beq 5f			; directions equal - do nothing
 	bpl 1f			; turn ccw
@@ -167,7 +171,6 @@ control_joy
 	bls 1f			; <= 180 deg
 	negb			; > 180 deg - turn other way
 1	addb player_dir	; apply turn
-	andb #$1f		;
 	stb player_dir	;
 5
 	lda jbuttons

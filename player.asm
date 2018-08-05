@@ -1,6 +1,6 @@
 ;**********************************************************
 ; ROTB - Return of the Beast
-; Copyright 2014-2017 S. Orchard
+; Copyright 2014-2018 S. Orchard
 ;**********************************************************
 
 	section "CODE"
@@ -18,6 +18,9 @@ draw_player
 	ldx td_fbuf
 
 	lda player_dir
+	lsra
+	lsra
+	lsra
 	anda #30
 	ldu #player_frame_table
 	ldu a,u
@@ -140,7 +143,7 @@ player_explosion
 	clrb
 	subd scroll_y
 	std SP_YVEL,u
-	ldd #sp_plyr_expl_update_init
+	ldd #sp_plyr_expl_update_0
 	std SP_UPDATEP,u
 	rts
 
@@ -157,6 +160,9 @@ move_player
 	endif
 
 	ldb player_dir
+	lsrb
+	lsrb
+	lsrb
 	andb #30
 	;ldx #player_speed_table
 	;abx
@@ -304,6 +310,9 @@ pb_fire
 
 10	ldx #player_vel_table
 	ldb player_dir
+	lsrb
+	lsrb
+	lsrb
 	andb #30
 	abx
 	ldb ,x

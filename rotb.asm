@@ -254,7 +254,6 @@ code_entry
 
 
 	include "grfx/tiledata.asm"
-	include "grfx/sp_test.asm"
 	include "grfx/sp_std2.asm"
 	include "grfx/sp_explosion.asm"
 	include "grfx/sp_flap_2.asm"
@@ -326,10 +325,10 @@ START_LEVEL
 
 NEXT_LIFE
 
-START_DIR	equ 8
+START_DIR	equ 64
 	lda #START_DIR
 	sta player_dir
-	ldd player_speed_table+START_DIR
+	ldd player_speed_table+(START_DIR/8 & 0x1e)
 	std scroll_x_ctr
 	std scroll_x_inc
 
@@ -386,6 +385,9 @@ MLOOP
 	; update player velocity (affected by key scan & sometimes mode_routine)
 	ldx #player_speed_table
 	ldb player_dir
+	lsrb
+	lsrb
+	lsrb
 	andb #30
 	ldu b,x
 	stu scroll_x_inc
@@ -475,7 +477,7 @@ fl_mode_normal
 1	lda #1
 	bita keytable+3
 	bne 1f
-	ldx #sp_start_boss
+	ldx #sp_boss_spawn
 	stx on_no_sprites
 	ldd #task_table_nospawn
 	std task_ptr
@@ -534,7 +536,7 @@ boss_explosion
 	clrb
 	std SP_XVEL,u
 	std SP_YVEL,u
-	ldd #sp_plyr_expl_update_init
+	ldd #sp_plyr_expl_update_0
 	std SP_UPDATEP,u
 1	rts
 
@@ -546,10 +548,10 @@ fl_mode_warp_out
 	jsr sp_update_collidable
 
 	lda player_dir
-	inca
-	anda #31
+	adda #8
 	sta player_dir
-	cmpa #8
+	anda #$f8
+	cmpa #$40
 	beq 1f
 
 	rts

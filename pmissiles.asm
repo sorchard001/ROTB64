@@ -1,6 +1,6 @@
 ;**********************************************************
 ; ROTB - Return of the Beast
-; Copyright 2014-2017 S. Orchard
+; Copyright 2014-2018 S. Orchard
 ;**********************************************************
 
 	section "_STRUCT"
@@ -63,7 +63,6 @@ sp_test_3x8_launch
 	ldd #(PLYR_CTR_Y-3)*32
 	std SP_YORD,y
 	ldb player_dir
-	andb #30
 	stb SPM_DIR,y
 
 	ldd #pmr_launch
@@ -96,27 +95,27 @@ pmr_init_target
 pmr_find_target
 	ldu SPM_TARGET,y
 	lda SP_MISFLG,u
-	bpl 2f				; target can't be tracked (or already tracked)
+	bpl 2f			; target can't be tracked (or already tracked)
 
 	ldd SP_XORD,u
 	addd missile_offset_x
 	cmpa #28
-	bhi 2f				; off left or right of screen
+	bhi 2f			; off left or right of screen
 	ldd SP_YORD,u
 	addd missile_offset_y
 	subd #(SCRN_HGT-12)*32
-	bhi 2f				; off top or bottom of screen
+	bhi 2f			; off top or bottom of screen
 
 	neg SP_MISFLG,u		; set positive to indicate target being tracked
 	ldd #pmr_targeting
 	std SPM_ROUTINE,y
-	ldd #-12*32			; initialise target markers
+	ldd #-12*32		; initialise target markers
 	std SPM_MARKER_OFF,y
 	rts
 
 2	leax SP_SIZE,u		; get address of next sprite
 	cmpx #sp_data_end	;
-	blo 1f				;
+	blo 1f			;
 	ldx #sp_data		;
 1	stx SPM_TARGET,y	;
 	rts
@@ -165,10 +164,9 @@ pmr_flight_rnd
 	beq 5f
 	ldb [rnd_ptr]
 	eorb SP_XORD,y
-	andb #4
-	subb #2
+	andb #32
+	subb #16
 	addb SPM_DIR,y
-	andb #30
 	stb SPM_DIR,y
 	bra _pmiss_update_sprite
 
@@ -205,10 +203,10 @@ pmr_flight
 _pmiss_update_sprite
 
 	ldb SPM_DIR,y
-	andb #30
-
+	andb #$f0
+	lsrb
+	lsrb
 	ldx #pmiss_vel_table
-	abx
 	abx
 	ldu ,x
 	stu SP_XVEL,y
@@ -216,12 +214,12 @@ _pmiss_update_sprite
 	stu SP_YVEL,y
 
 	ldx #sp_update_3x8
-	cmpb #16
+	cmpb #32
 	bls 1f
 	ldx #sp_update_3x8_flip
 	negb
-	addb #32
-1	lda #96
+	addb #64
+1	lda #48
 	mul
 	addd #sp_pmissile_img
 	tfr d,u
@@ -254,7 +252,7 @@ pmiss_check_hit
 pmiss_track
 	ldd SP_XORD,u
 	addd missile_offset_x
-	addd #2*64				; adjust for difference in sprite size
+	addd #2*64		; adjust for difference in sprite size
 	subd SP_XORD,y
 	lslb
 	rola
@@ -262,19 +260,19 @@ pmiss_track
 	ldd SP_YORD,y
 	subd SP_YORD,u
 	subd missile_offset_y
-	subd #2*32				; adjust for difference in sprite size
+	subd #2*32		; adjust for difference in sprite size
 	lslb
 	rola
 	lslb
 	rola
 	sta dy
 
-	ldb #2		; determine octant
-    lda dy		;
+	ldb #16		; determine octant
+	lda dy		;
 	bpl 1f		; y >= 0
 	neg dx		; rotate 180 cw
 	neg dy		;
-	addb #4*4	;
+	addb #4*32	;
 1	lda dx		;
 	bpl 1f		; x >= 0
 	nega		; rotate 90 cw
@@ -282,26 +280,19 @@ pmiss_track
 	stx dx    	;  just need to swap dx & dy
 	sta dy		;
 	lda dx		;
-	addb #2*4	;
+	addb #2*32	;
 1	cmpa dy		;
 	bhs 1f		; x >= y
-	addb #1*4	;
+	addb #1*32	;
 1
 	; determine which direction to rotate
-	lda #2
+	lda #12		; turn rate
 	subb SPM_DIR,y
 	beq 5f
-	bpl 1f
+	bpl 3f
 	nega
-	negb
-1	cmpb #16
-	blo 3f
-	nega
-
 3	adda SPM_DIR,y
-	anda #30
 	sta SPM_DIR,y
-
 5	rts
 
 

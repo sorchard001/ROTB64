@@ -37,47 +37,29 @@ en_init_all
 
 en_spawn
 	lda en_spawn_count	; time to spawn formation yet?
-	bne 1f			; spawn standard enemy
+	bne 1f			; spawn standard enemies
 
 ; spawn enemy formation
 	lda sp_count		; enough free sprites to spawn formation?
 	cmpa #CFG_NUM_SPRITES-4	;
 	bhi 9f			; not enough - rts
-
 	lda #EN_FORM_PERIOD
 	sta en_spawn_count
 	lda #4
 	sta en_form_count
-	lda #-8
-	sta en_spawn_param
-
-	ldd #sp_form_ps_params
-	bsr en_update_ps_setup
-	ldy #sp_form_update_init	; address of initialiser
-	bsr en_new_sprite
-	bsr en_new_sprite
-	bsr en_new_sprite
-	bsr en_new_sprite
-
-	ldx #SND_ALERT
-	jmp snd_start_fx
+	jmp sp_form_spawn
 
 ; spawn two standard enemies
-
 1	dec en_spawn_rate
-	bne 9f
+	bne 9f			; rts
 	lda #EN_SPAWN_PERIOD
 	sta en_spawn_rate
-
 	lda en_std_max
 	suba #2
 	cmpa sp_count
-	blo 9f
-	lda #-8
-	sta en_spawn_param
+	blo 9f			; rts
 	dec en_spawn_count
-	ldx #sp_std_update_init
-	bsr en_new_sprite 
+	jmp sp_std_spawn
 
 
 ; allocate collidable sprite from free list
@@ -85,7 +67,7 @@ en_spawn
 ; optional data in y
 ; returns new sprite in u
 ; assumes free sprite is available
-en_new_sprite
+en_new_col_sprite
 	ldu sp_free_list	; get next free sprite
 	ldd SP_LINK,u		; remove sprite from free list
 	std sp_free_list	;

@@ -30,12 +30,13 @@ sp_spare	rmb SP_SIZE * 2
 
 	org CFG_SPRITE_DATA
 
-; mask + image requires 96 bytes (4x12 sprite)
+; memory reserved for preshifted sprite images
+; preshifted masks & images require 96*4 bytes (4x12 sprite)
 
-sp_std_img		rmb 96*4
-sp_explosion_img	rmb 96*4*4
-sp_form_img
-sp_boss_img		rmb 96*4*4
+sp_std_grfx_ps		rmb 96*4
+sp_expl_grfx_ps		rmb 96*4*4
+sp_form_grfx_ps
+sp_boss_grfx_ps		rmb 96*4*4
 
 ;**********************************************************
 
@@ -49,7 +50,7 @@ sp_init_all
 	clrb
 	std sp_pcol_list
 	std sp_ncol_list
-	ldu #sp_std_explosion	; default descriptor
+	ldu #sp_expl_desc	; default descriptor
 1	stu SP_DESC,x
 	sta SP_MISFLG,x
 	leax SP_SIZE,x
@@ -170,7 +171,7 @@ _sp_update_sp4x12_destroy
 1	jsr snd_start_fx	;
 
 	; turn sprite into explosion
-	ldd #sp_std_expl_update_init
+	ldd #sp_expl_update_0
 	std SP_UPDATEP,y
 
 	jmp [SP_DPTR,u]		; additional code to run on destruction
@@ -473,13 +474,11 @@ sp_unpack
 
 sp_std_ps_params
 	fcb 1
-	fdb sp_std_img,sp_std2
-	;fdb sp_std_img,sp_std
-	;fdb sp_std_img,sp_tank
+	fdb sp_std_grfx_ps,sp_std2
 
 sp_explosion_ps_params
 	fcb 4
-	fdb sp_explosion_img,sp_explosion
+	fdb sp_expl_grfx_ps,sp_explosion
 
 
 

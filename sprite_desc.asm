@@ -61,7 +61,7 @@ sp_std_hit
 	lda en_count
 	cmpa #50
 	blo 1f
-	ldx #sp_start_boss
+	ldx #sp_boss_spawn
 	cmpx on_no_sprites
 	beq 1f
 	stx on_no_sprites
@@ -79,13 +79,19 @@ sp_warp
 	jmp snd_start_fx_force
 
 
+sp_std_spawn
+	lda #-8
+	sta en_spawn_param
+	ldx #sp_std_update_0
+	jsr en_new_col_sprite 
+	jmp en_new_col_sprite 
 
-sp_std_update_init
+
+sp_std_update_0
 	ldb player_dir
-	andb #30
-	lslb
 	stb SP_DATA,y		; direction
-	lslb
+	lsrb
+	andb #$78
 	ldx #form_coords
 	abx
 	ldb en_spawn_param
@@ -106,11 +112,11 @@ sp_std_update_init
 	sta SP_DATA2,y		;
 	lda #1			; 1st update next frame
 	sta SP_DATA3,y		;
-	ldd #sp_std_img
+	ldd #sp_std_grfx_ps
 	std SP_FRAMEP,y
 	ldd #sp_std_desc
 	std SP_DESC,y
-	ldd #sp_std_update
+	ldd #sp_std_update_1
 	std SP_UPDATEP,y
 	jmp sp_update_sp4x12_next
 
@@ -119,12 +125,12 @@ dx	equ temp0
 dy	equ temp1
 sp_dir	equ temp2
 
-sp_std_update
+sp_std_update_1
 	dec SP_DATA3,y
 	bne 9f
 	lda #4
 	sta SP_DATA3,y
-	lda #4		; chase player
+	lda #16		; turn rate
 	dec SP_DATA2,y
 	bpl 1f
 	nega		; run away
@@ -147,12 +153,12 @@ sp_std_update
 	rola
 	sta dy
 
-	ldb #4		; determine octant
+	ldb #16		; determine octant
 	lda dy		;
 	bpl 1f		; y >= 0
 	neg dx		; rotate 180 cw
 	neg dy		;
-	addb #4*8	;
+	addb #4*32	;
 1	lda dx		;
 	bpl 1f		; x >= 0
 	nega		; rotate 90 cw
@@ -160,30 +166,27 @@ sp_std_update
 	stx dx    	;  just need to swap dx & dy
 	sta dy		;
 	lda dx		;
-	addb #2*8	;
+	addb #2*32	;
 1	cmpa dy		;
 	bhs 1f		; x >= y
-	addb #1*8	;
+	addb #1*32	;
 
 	; determine which direction to rotate
 1	lda sp_dir	;
-	subb SP_DATA,y	; difference in directions
-	bne 1f		; not pointing at player, so turn
-	tsta		; chasing or running away?
-	bmi 3f		; running away, so turn 
-	clra		; direction is correct, don't turn
+	subb SP_DATA,y	; calc difference in directions
+	bne 1f		; direction not equal
+	tsta		; chasing or fleeing?
+	bmi 3f		; fleeing, so need to turn
+	clra		; chasing, so no need to turn
 	bra 3f		;
-
-1	bpl 1f		; select the faster turn direction
-	nega		;
-	negb		;
-1	cmpb #32	;
-	blo 3f		;
-	nega		;
+1	bpl 3f		; turning in correct direction
+	nega		; turn the other way
 
 3	adda SP_DATA,y
-	anda #$3c
 	sta SP_DATA,y
+	lsra
+	lsra
+	anda #$3c
 	ldx #std_enemy_vel_table
 	leax a,x
 	ldd ,x
@@ -210,17 +213,32 @@ sp_form_desc
 	fcb 2			; score 20
 	fdb sp_form_hit		; on destroy
 	fdb sp_rts		; missile hit n/a
-	assert (*-1b) == SP_DESC_SIZE, "sp_form_enemy wrong size"
+	assert (*-1b) == SP_DESC_SIZE, "sp_form_desc wrong size"
 
-sp_form_update_init
+
+sp_form_spawn
+	lda #-8
+	sta en_spawn_param
+	ldd #sp_form_ps_params
+	jsr en_update_ps_setup
+	ldy #sp_form_update_0	; address of initialiser
+	jsr en_new_col_sprite
+	jsr en_new_col_sprite
+	jsr en_new_col_sprite
+	jsr en_new_col_sprite
+	ldx #SND_ALERT
+	jmp snd_start_fx
+
+
+sp_form_update_0
 	ldb player_dir
-	andb #30
-	lslb
-	ldu #form_enemy_vel_table
-	leau b,u
-	lslb
+	andb #$f0
+	lsrb
 	ldx #form_coords
 	abx
+	lsrb
+	ldu #form_enemy_vel_table
+	leau b,u
 	ldb en_spawn_param
 	leax b,x
 	addb #4
@@ -239,26 +257,26 @@ sp_form_update_init
 	clr SP_COLFLG,y
 	ldd #sp_form_desc
 	std SP_DESC,y
-	ldd #sp_form_img
+	ldd #sp_form_grfx_ps
 	std SP_FRAMEP,y
-	ldd #sp_form_update
+	ldd #sp_form_update_1
 	std SP_UPDATEP,y
 	jmp sp_update_sp4x12_next
 
 
 sp_form_ps_params
-	fcb 3		; number of sprites to preshift
-	fdb sp_form_img	; destination
-	fdb sp_flap_2	; source
-	fcb 4		; frame sync count
+	fcb 3			; number of sprites to preshift
+	fdb sp_form_grfx_ps	; destination
+	fdb sp_flap_2		; source
+	fcb 4			; frame sync count
 
 
-sp_form_update
+sp_form_update_1
 	ldd SP_FRAMEP,y
 	addd #384
-	cmpd #sp_form_img+3*384
+	cmpd #sp_form_grfx_ps+3*384
 	blo 2f
-	ldd #sp_form_img
+	ldd #sp_form_grfx_ps
 2	std SP_FRAMEP,y
 	jmp sp_update_sp4x12
 	
@@ -301,27 +319,27 @@ form_enemy_vel_table
 ;----------------------------------------------------------
 ; standard explosion
 
-sp_std_explosion
+sp_expl_desc
 1	fdb sp_remove		; offscreen handler
 	fdb 0			; explosion sound n/a
 	fcb 0			; score n/a
 	fdb sp_dptr_rtn		; destruction code n/a
 	fdb sp_rts		; missile hit n/a
-	assert (*-1b) == SP_DESC_SIZE, "sp_std_explosion wrong size"
+	assert (*-1b) == SP_DESC_SIZE, "sp_expl_desc wrong size"
 
-sp_plyr_expl_update_init
-	ldu #sp_player_expl_frames
+sp_plyr_expl_update_0
+	ldu #sp_plyr_expl_frames
 	bra 1f
-sp_std_expl_update_init
+sp_expl_update_0
 	ldu #sp_expl_frames
 1	stu SP_DATA,y
-	ldd #sp_std_explosion
+	ldd #sp_expl_desc
 	std SP_DESC,y
-	ldd #sp_std_expl_update
+	ldd #sp_expl_update_1
 	std SP_UPDATEP,y
 	jmp sp_update_sp4x12_next
 
-sp_std_expl_update
+sp_expl_update_1
 	ldu SP_DATA,y
 	ldd ,u++
 	lbeq sp_remove
@@ -350,15 +368,15 @@ sp_boss_desc
 	assert (*-1b) == SP_DESC_SIZE, "sp_boss_desc wrong size"
 
 sp_boss_ps_params
-	fcb 4		; number of sprites to preshift
-	fdb sp_boss_img	; destination
-	fdb sp_boss	; source
-	fcb 0		; frame sync count
+	fcb 4			; number of sprites to preshift
+	fdb sp_boss_grfx_ps	; destination
+	fdb sp_boss		; source
+	fcb 0			; frame sync count
 
 ; initialise boss just off edge of screen behind player
 ; boss is made up of four sprites flying in formation
 ; assumes there are four free sprites
-sp_start_boss
+sp_boss_spawn
 	ldd #fl_mode_boss
 	std mode_routine
 	ldx #sp_warp
@@ -373,13 +391,13 @@ sp_start_boss
 
 	ldd #sp_boss_ps_params	; graphics preshift params
 	jsr en_update_ps_setup	; prepare for preshift
-	ldy #sp_boss_update_initb	; address of initialiser
-	jsr en_new_sprite
-	stu boss_sprite_last	; keep address for removal routine
-	jsr en_new_sprite
-	jsr en_new_sprite
-	ldy #sp_boss_update_inita	; address of initialiser
-	jsr en_new_sprite
+	ldy #sp_boss_update_0b	; address of initialiser
+	jsr en_new_col_sprite
+	stu boss_sprite_last	; keep address for offscreen routine
+	jsr en_new_col_sprite
+	jsr en_new_col_sprite
+	ldy #sp_boss_update_0a	; address of initialiser
+	jsr en_new_col_sprite
 	stu boss_sprite		; keep address for update routines
 	rts
 
@@ -482,24 +500,23 @@ sp_boss_update_y
 	rts
 
 
-sp_boss_update_inita
+sp_boss_update_0a
 	dec SP_MISFLG,y		; main sprite can be targeted
 	ldb player_dir
 	stb SP_DATA2,y
-	ldx #sp_boss_update
+	ldx #sp_boss_update_1
 	bra 1f
-sp_boss_update_initb
+sp_boss_update_0b
 	ldb player_dir
 	ldx #sp_update_sp4x12
 1	stx SP_UPDATEP,y
-	addb #16		; add 180 degrees to player dir
-	lslb			;
+	addb #128		; add 180 degrees to player dir
+	stb SP_DATA,y		; initial direction
+	lsrb			;
+	lsrb			;
 	andb #$3c		;
 	ldx #boss_coords	; boss init coords table
 	abx			;
-	lslb			;
-	lslb			;
-	stb SP_DATA,y		; initial direction
 	clra			; start with zero velocity
 	clrb			;
 	std SP_XVEL,y		;
@@ -522,16 +539,16 @@ sp_boss_update_initb
 ; initialisation table for each sprite making up the boss
 ; contains coord offsets and graphics address
 sp_boss_init_params
-	fdb 12*64, 12*32, sp_boss_img+3*384
-	fdb 0,     12*32, sp_boss_img+2*384
-	fdb 12*64, 0,     sp_boss_img+384
-	fdb 0,     0,     sp_boss_img
+	fdb 12*64, 12*32, sp_boss_grfx_ps+3*384
+	fdb 0,     12*32, sp_boss_grfx_ps+2*384
+	fdb 12*64, 0,     sp_boss_grfx_ps+384
+	fdb 0,     0,     sp_boss_grfx_ps
 
 
 ; boss behaviour:
 ; steer toward centre of screen
 ; with modification to steer behind player as they turn
-sp_boss_update
+sp_boss_update_1
 	lda #4		; chase player
 	ldb boss_hit
 	beq 1f
@@ -606,8 +623,8 @@ sp_boss_update
 6	sta temp0
 	lda SP_DATA2,y
 	suba player_dir
-	lsla
-	lsla
+	asra
+	;asra
 	adda temp0
 	ldb player_dir	; save player_dir for next time
 	stb SP_DATA2,y	;
@@ -661,27 +678,27 @@ sp_boss_vel_table
 ;**********************************************************
 
 sp_expl_frames
-	fdb sp_explosion_img
-	fdb sp_explosion_img+1*384
-	fdb sp_explosion_img
-	fdb sp_explosion_img+2*384
-	fdb sp_explosion_img
-	fdb sp_explosion_img+1*384
-	fdb sp_explosion_img+2*384
-	fdb sp_explosion_img+2*384
-	fdb sp_explosion_img+3*384
+	fdb sp_expl_grfx_ps
+	fdb sp_expl_grfx_ps+1*384
+	fdb sp_expl_grfx_ps
+	fdb sp_expl_grfx_ps+2*384
+	fdb sp_expl_grfx_ps
+	fdb sp_expl_grfx_ps+1*384
+	fdb sp_expl_grfx_ps+2*384
+	fdb sp_expl_grfx_ps+2*384
+	fdb sp_expl_grfx_ps+3*384
 	fdb 0
 
-sp_player_expl_frames
-	fdb sp_explosion_img+3*384
-	fdb sp_explosion_img+2*384
-	fdb sp_explosion_img+1*384
-	fdb sp_explosion_img
-	fdb sp_explosion_img+1*384
-	fdb sp_explosion_img
-	fdb sp_explosion_img+1*384
-	fdb sp_explosion_img+2*384
-	fdb sp_explosion_img+3*384
+sp_plyr_expl_frames
+	fdb sp_expl_grfx_ps+3*384
+	fdb sp_expl_grfx_ps+2*384
+	fdb sp_expl_grfx_ps+1*384
+	fdb sp_expl_grfx_ps
+	fdb sp_expl_grfx_ps+1*384
+	fdb sp_expl_grfx_ps
+	fdb sp_expl_grfx_ps+1*384
+	fdb sp_expl_grfx_ps+2*384
+	fdb sp_expl_grfx_ps+3*384
 	fdb 0,0
 
 
