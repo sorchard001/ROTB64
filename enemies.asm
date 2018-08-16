@@ -5,6 +5,7 @@
 
 	section "DPVARS"
 
+en_spawn_vec	rmb 2	; pointer to current spawn routine
 en_std_max	rmb 1	; max number of standard enemies
 en_spawn_rate	rmb 1	; enemy spawn rate counter
 en_spawn_count	rmb 1	; counts number of std enemies spawned vs formations
@@ -29,13 +30,20 @@ en_init_all
 	sta en_spawn_rate
 	lda #EN_FORM_PERIOD
 	sta en_spawn_count
+	ldd #en_svec_std
+	std en_spawn_vec
 	;clr en_count
 	;lda #3
 	;sta en_std_max
+en_svec_nop
 	rts
 
 
 en_spawn
+	jmp [en_spawn_vec]
+
+
+en_svec_std
 	lda en_spawn_count	; time to spawn formation yet?
 	bne 1f			; spawn standard enemies
 
@@ -62,6 +70,39 @@ en_spawn
 	jmp sp_std_spawn
 
 
+en_svec_boss
+	lda sp_count
+	bne 9f			; rts
+	lda #6
+	sta en_spawn_rate
+	ldd #en_svec_boss_fball_0
+	std en_spawn_vec
+	jmp sp_boss_spawn
+
+en_svec_boss_fball_0
+	dec en_spawn_rate
+	bne 9f
+	ldd #en_svec_boss_fball_1
+	std en_spawn_vec
+	rts
+
+en_svec_boss_fball_1
+	ldy sp_free_list
+	beq 9f			; rts
+	ldd #en_svec_boss_fball_0
+	std en_spawn_vec
+	lda #2
+	sta en_spawn_rate
+	jmp sp_fball_spawn
+
+en_svec_warp
+	lda sp_count
+	bne 9f			; rts
+	ldd #en_svec_nop
+	std en_spawn_vec
+	jmp sp_warp
+
+
 ; allocate collidable sprite from free list
 ; pointer to update routine in x
 ; optional data in y
@@ -74,6 +115,25 @@ en_new_col_sprite
 	ldd sp_pcol_list	; add sprite to collidable list
 	std SP_LINK,u		;
 	stu sp_pcol_list	;
+	inc sp_count		; increase allocated count
+	stx SP_UPDATEP,u	; pointer to update routine
+	sty SP_DATA,u		; optional data
+9	rts
+
+
+; allocate aux sprite from free list
+; pointer to update routine in x
+; optional data in y
+; returns new sprite in u
+; assumes free sprite is available
+
+en_new_aux_sprite
+	ldu sp_free_list	; get next free sprite
+	ldd SP_LINK,u		; remove sprite from free list
+	std sp_free_list	;
+	ldd sp_aux_list		; add sprite to aux list
+	std SP_LINK,u		;
+	stu sp_aux_list		;
 	inc sp_count		; increase allocated count
 	stx SP_UPDATEP,u	; pointer to update routine
 	sty SP_DATA,u		; optional data

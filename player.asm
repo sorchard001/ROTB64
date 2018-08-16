@@ -114,10 +114,8 @@ pcol_inc equ *+2
 	sta lives
 	ldd #fl_mode_death
 	std mode_routine
-	ldd #task_nop
-	std on_no_sprites
-	ldd #task_table_nospawn
-	std task_ptr
+	ldd #en_svec_nop
+	std en_spawn_vec
 	lda #50
 	sta death_tmr
 	ldx #SND_EXPL2

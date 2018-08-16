@@ -4,7 +4,6 @@
 ; Output size: 12x12
 ; Output bit depth: 2
 
-sp_flap_2
 	fcb $f3,$fc,$03
 	fcb $fc,$f0,$00
 	fcb $3f,$30,$00

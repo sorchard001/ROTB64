@@ -6,10 +6,11 @@
 
 	include "stdmacros.asm"
 
-DBG_RASTER 			equ 1
+DBG_RASTER 		equ 1
 DBG_NO_PLAYER_COL	equ 1
 ;DBG_NO_PLAYER_MOVE	equ 1
 DBG_SKIP_INTRO		equ 1
+;DBG_STACK		equ 1
 
 ; 64K mode
 CFG_64K				equ 1
@@ -256,8 +257,12 @@ code_entry
 	include "grfx/tiledata.asm"
 	include "grfx/sp_std2.asm"
 	include "grfx/sp_explosion.asm"
+sp_flap_2
+	;include "grfx/sp_rot.asm"
 	include "grfx/sp_flap_2.asm"
+
 	include "grfx/sp_boss.asm"
+sp_player
 	include "grfx/sp_player.asm"
 	include "grfx/sp_pmissile.asm"
 	include "grfx/chardata_digits.asm"
@@ -267,6 +272,7 @@ code_entry
 	include "screen.asm"
 	include "player.asm"
 	include "sprite_desc.asm"
+	include "sp_fball.asm"
 	include "sprites.asm"
 	include "sprites_3x8.asm"
 	include "pmissiles.asm"
@@ -299,6 +305,10 @@ RESTART_GAME
 	cmpx #FBUF0+CFG_TOPOFF
 	blo 1b
 
+  if DBG_STACK
+	lds #FBUF0+24
+  endif
+
 	; initialise score display
 	clrb
 	ldu #FBUF0+CFG_TOPOFF+SCORE_POS+6
@@ -317,15 +327,17 @@ RESTART_GAME
 	sta score0
 
 START_LEVEL
+	clr en_count
+
+NEXT_LIFE
 	clra
 	clrb
-	sta en_count
 	std missile_offset_x
 	std missile_offset_y
 
-NEXT_LIFE
 
 START_DIR	equ 64
+
 	lda #START_DIR
 	sta player_dir
 	ldd player_speed_table+(START_DIR/8 & 0x1e)
@@ -438,9 +450,9 @@ MLOOP
 	; housekeeping list
 	ldu task_ptr
 	ldx ,u++
-	bne 1f
-	ldu ,u
-	ldx ,u++
+	;bne 1f
+	;ldu ,u
+	;ldx ,u++
 1	stu task_ptr
 	jsr ,x
 
@@ -477,10 +489,17 @@ fl_mode_normal
 1	lda #1
 	bita keytable+3
 	bne 1f
-	ldx #sp_boss_spawn
-	stx on_no_sprites
-	ldd #task_table_nospawn
-	std task_ptr
+	ldx #en_svec_boss
+	stx en_spawn_vec
+
+	; 6
+1	lda #1
+	bita keytable+6
+	bne 1f
+	ldy sp_free_list
+	beq 1f
+	jsr sp_fball_spawn
+
 
 1	rts
 
@@ -490,6 +509,7 @@ fl_mode_boss
 	jsr draw_player
 	jsr pb_update_all
 	jsr sp_update_collidable
+	jsr sp_update_aux_collidable
 	jsr player_collision
 	jsr sp_update_non_collidable
 	jsr [control_set]
@@ -507,10 +527,7 @@ fl_mode_boss
 1	lda #1
 	bita keytable+5
 	bne 1f
-	ldd #fl_mode_warp_out
-	std mode_routine
-	ldx #SND_WARPOUT
-	jsr snd_start_fx_force
+	jsr sp_warp
 
 1	rts
 
@@ -663,44 +680,18 @@ rndb adda #0
 task_table_normal
 	fdb draw_lives
 	fdb draw_lives
-task_table_normal_rst
+task_table_normal_loop
 	fdb draw_score0
 	fdb draw_score2
 	fdb draw_score1
-	fdb draw_score0
+	;fdb draw_score0
 	fdb en_spawn
-	fdb 0, task_table_normal_rst
+	fdb task_table_normal_rst
 
-
-task_table_nospawn
-	fdb draw_lives
-	fdb draw_lives
-task_table_nospawn_rst
-	fdb check_no_sprites
-	fdb draw_score0
-	fdb draw_score2
-	fdb draw_score1
-	fdb draw_score0
-	fdb 0, task_table_nospawn_rst
-
-task_nop
+task_table_normal_rst
+	ldx #task_table_normal_loop
+	stx task_ptr
 	rts
-
-;*************************************
-
-	section "DPVARS"
-
-on_no_sprites	rmb 2
-
-	section "CODE"
-
-check_no_sprites
-	lda sp_count
-	bne task_nop
-	ldx on_no_sprites
-	ldd #task_nop
-	std on_no_sprites
-	jmp ,x
 
 ;*************************************
 

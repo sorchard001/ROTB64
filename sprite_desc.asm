@@ -44,6 +44,26 @@ SP_DESC_SIZE	equ *	; size of data structure
 
 	section "CODE"
 
+sp_calc_octant
+	ldb #16		; determine octant
+	lda dy		;
+	bpl 1f		; y >= 0
+	neg dx		; rotate 180 cw
+	neg dy		;
+	addb #4*32	;
+1	lda dx		;
+	bpl 1f		; x >= 0
+	nega		; rotate 90 cw
+	ldx dy   	; don't care about low byte
+	stx dx    	;  just need to swap dx & dy
+	sta dy		;
+	lda dx		;
+	addb #2*32	;
+1	cmpa dy		;
+	bhs 1f		; x >= y
+	addb #1*32	;
+1	rts
+
 ;----------------------------------------------------------
 ; standard enemy
 
@@ -61,12 +81,10 @@ sp_std_hit
 	lda en_count
 	cmpa #50
 	blo 1f
-	ldx #sp_boss_spawn
-	cmpx on_no_sprites
+	ldx #en_svec_boss
+	cmpx en_spawn_vec
 	beq 1f
-	stx on_no_sprites
-	ldd #task_table_nospawn
-	std task_ptr
+	stx en_spawn_vec
 	ldx #SND_ALERT2
 	jsr snd_start_fx_force
 1	jmp sp_dptr_rtn		; return to caller
@@ -187,7 +205,7 @@ sp_std_update_1
 	lsra
 	lsra
 	anda #$3c
-	ldx #std_enemy_vel_table
+	ldx #sp_std_vel_table
 	leax a,x
 	ldd ,x
 	std SP_XVEL,y
@@ -201,7 +219,7 @@ sp_rts
 
 
 ; standard enemy velocity table
-std_enemy_vel_table
+sp_std_vel_table
 	mac_velocity_table_180 0.8
 
 ;----------------------------------------------------------
@@ -237,7 +255,7 @@ sp_form_update_0
 	ldx #form_coords
 	abx
 	lsrb
-	ldu #form_enemy_vel_table
+	ldu #sp_std_vel_table
 	leau b,u
 	ldb en_spawn_param
 	leax b,x
@@ -313,7 +331,7 @@ bonus_form
 
 
 ; formation enemy velocity table
-form_enemy_vel_table
+sp_form_vel_table
 	mac_velocity_table_180 1.1
 
 ;----------------------------------------------------------
@@ -379,8 +397,8 @@ sp_boss_ps_params
 sp_boss_spawn
 	ldd #fl_mode_boss
 	std mode_routine
-	ldx #sp_warp
-	stx on_no_sprites
+	;ldx #sp_warp
+	;stx on_no_sprites
 	clr boss_hit
 	ldd #-64*6
 	std missile_offset_x
@@ -549,7 +567,7 @@ sp_boss_init_params
 ; steer toward centre of screen
 ; with modification to steer behind player as they turn
 sp_boss_update_1
-	lda #4		; chase player
+	lda #4		; turn rate
 	ldb boss_hit
 	beq 1f
 	nega		; run away
@@ -614,7 +632,7 @@ sp_boss_update_1
 	bra 5f
 4	lsr dy
 	addb dy
-5	cmpb #40
+5	cmpb #48
 	bhi 6f
 	leax 64,x		; reduced velocity when nearer to player
 	asra			; also reduced turn rate
@@ -623,6 +641,7 @@ sp_boss_update_1
 6	sta temp0
 	lda SP_DATA2,y
 	suba player_dir
+	asra
 	asra
 	;asra
 	adda temp0
@@ -662,6 +681,8 @@ sp_boss_update_1
 sp_boss_on_missile
 	inc boss_hit
 	clr SP_MISFLG,u
+	ldd #en_svec_warp
+	std en_spawn_vec
 	;ldx #SND_EXPL2
 	ldx SP_EXPL,x
 	jsr snd_start_fx
@@ -672,7 +693,7 @@ sp_boss_on_missile
 ; boss velocity table
 sp_boss_vel_table
 	mac_velocity_table_180 1.5
-	mac_velocity_table_180 1.25
+	mac_velocity_table_180 1.125
 
 
 ;**********************************************************

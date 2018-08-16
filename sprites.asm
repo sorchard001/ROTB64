@@ -8,6 +8,7 @@
 sp_free_list	rmb 2	; ptr to list of unused sprites
 sp_pcol_list	rmb 2	; ptr to list of collidable sprites
 sp_ncol_list	rmb 2	; ptr to list of non-collidable sprites
+sp_aux_list	rmb 2	; ptr to additional layer of sprites
 sp_prev_ptr	rmb 2	; points to previous sprite in current list
 sp_count	rmb 1	; number of active sprites
 sp_col_check	rmb 2	; pointer to collision check code (or bypass)
@@ -33,7 +34,8 @@ sp_spare	rmb SP_SIZE * 2
 ; memory reserved for preshifted sprite images
 ; preshifted masks & images require 96*4 bytes (4x12 sprite)
 
-sp_std_grfx_ps		rmb 96*4
+sp_fball_grfx_ps
+sp_std_grfx_ps		rmb 96*4*2
 sp_expl_grfx_ps		rmb 96*4*4
 sp_form_grfx_ps
 sp_boss_grfx_ps		rmb 96*4*4
@@ -50,6 +52,7 @@ sp_init_all
 	clrb
 	std sp_pcol_list
 	std sp_ncol_list
+	std sp_aux_list
 	ldu #sp_expl_desc	; default descriptor
 1	stu SP_DESC,x
 	sta SP_MISFLG,x
@@ -77,6 +80,14 @@ sp_update_non_collidable
 	std sp_col_check		;
 	ldy #sp_ncol_list-SP_LINK	; initial 'previous' sprite
 	jmp sp_update_sp4x12_next
+
+; update aux layer of sprites as collidable
+sp_update_aux_collidable
+	ldd #sp_update_sp4x12_check_col	; enable player bullet collision detect
+	std sp_col_check		;
+	ldy #sp_aux_list-SP_LINK	; initial 'previous' sprite
+	jmp sp_update_sp4x12_next
+
 
 ; nb. initial 'previous' sprite comes into play if the first sprite is
 ; removed from list. The address of the next sprite gets stored in SP_LINK
