@@ -190,10 +190,12 @@ pmr_flight
 	bne 1f
 	ldd #pmr_find_target
 	std SPM_ROUTINE,y
-	inc SP_COLFLG,u		; set collision flag
 	ldx SP_DESC,u
-	jmp [SP_MISCODE,x]
-	;rts
+	ldd SP_MHIT,x
+	beq 9f
+	std SP_UPDATEP,u
+9	bra _pmiss_update_sprite
+;9	rts
 
 1	jsr pmiss_track
 	jsr pmiss_draw_target_locked

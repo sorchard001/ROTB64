@@ -257,8 +257,7 @@ code_entry
 	include "grfx/tiledata.asm"
 	include "grfx/sp_std2.asm"
 	include "grfx/sp_explosion.asm"
-sp_flap_2
-	;include "grfx/sp_rot.asm"
+sp_form_grfx
 	include "grfx/sp_flap_2.asm"
 
 	include "grfx/sp_boss.asm"
@@ -272,6 +271,7 @@ sp_player
 	include "screen.asm"
 	include "player.asm"
 	include "sprite_desc.asm"
+	include "sp_rot.asm"
 	include "sp_fball.asm"
 	include "sprites.asm"
 	include "sprites_3x8.asm"

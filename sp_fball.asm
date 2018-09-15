@@ -15,8 +15,8 @@ sp_fball_desc
 1	fdb sp_remove		; offscreen handler
 	fdb SND_EXPL_S		; explosion sound
 	fcb 1			; score 10
-	fdb sp_dptr_rtn		; on destroy n/a
-	fdb sp_rts		; missile hit n/a
+	fdb sp_update_explode	; on bullet hit
+	fdb 0			; missile hit n/a
 	assert (*-1b) == SP_DESC_SIZE, "sp_fball_desc wrong_size"
 
 sp_fball_ps_params
@@ -76,7 +76,6 @@ sp_fball_update_0
 	;addd SP_YVEL,u
 	subd scroll_y
 	std SP_YVEL,y
-	clr SP_COLFLG,y
 	ldd #sp_fball_desc
 	std SP_DESC,y
 	ldd #sp_fball_grfx_ps
@@ -95,7 +94,8 @@ sp_fball_update_1
 1	std SP_FRAMEP,y
 	lda boss_hit
 	beq 1f
-	inc SP_COLFLG,y
+	ldd #sp_update_explode
+	std SP_UPDATEP,y
 1	jmp sp_update_sp4x12
 	
 

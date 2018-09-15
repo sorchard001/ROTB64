@@ -12,6 +12,7 @@ sp_aux_list	rmb 2	; ptr to additional layer of sprites
 sp_prev_ptr	rmb 2	; points to previous sprite in current list
 sp_count	rmb 1	; number of active sprites
 sp_col_check	rmb 2	; pointer to collision check code (or bypass)
+sp_ref_count	rmb 1
 
 kill_count	rmb 1	; temporary for demo sound fx
 
@@ -37,6 +38,7 @@ sp_spare	rmb SP_SIZE * 2
 sp_fball_grfx_ps
 sp_std_grfx_ps		rmb 96*4*2
 sp_expl_grfx_ps		rmb 96*4*4
+sp_rot_grfx_ps
 sp_form_grfx_ps
 sp_boss_grfx_ps		rmb 96*4*4
 
@@ -62,6 +64,7 @@ sp_init_all
 	bne 1b
 	std SP_LINK-SP_SIZE,x
 	clr kill_count
+	clr sp_ref_count
 
 	jsr sp_unpack
 	rts
@@ -145,9 +148,7 @@ PB_COL_NEXT equ 9-1
 PB_COL_SIZE equ 9
 
 sp_update_sp4x12_check_col
-	ldb SP_COLFLG,y		; check if collision already flagged
-	bne 1f
-	;clrb				; clear collision flag
+	clrb				; clear collision flag
 _pb_col_data
 	pb_col_check_mac 0
 	pb_col_check_mac 1
@@ -160,45 +161,12 @@ _pb_col_data
 	tstb
 	beq sp_update_sp4x12_next	; no hit
 
-1	ldu SP_DESC,y			; point to additional sprite info
-	lda SP_SCORE,u
-	beq sp_update_sp4x12_next	; no score means don't destroy sprite
-
-_sp_update_sp4x12_destroy
-	adda score0
-	daa
-	sta score0
-	lda score1
-	adca #0
-	daa
-	sta score1
-	lda score2
-	adca #0
-	daa
-	sta score2
-
-	clr SP_MISFLG,y		; stop missiles tracking this sprite
-	ldx SP_EXPL,u		; explosion sound effect
-1	jsr snd_start_fx	;
-
-	; turn sprite into explosion
-	ldd #sp_expl_update_0
+	ldu SP_DESC,y			; point to additional sprite info
+	ldd SP_BHIT,u			; code to run on bullet hit
+	beq sp_update_sp4x12_next	; null pointer means bullet proof
 	std SP_UPDATEP,y
+	bra sp_update_sp4x12_next
 
-	jmp [SP_DPTR,u]		; additional code to run on destruction
-sp_dptr_rtn			; return from destruction routine
-
-	ldx sp_prev_ptr		; remove sprite from current list
-	ldd SP_LINK,y		;
-	std SP_LINK,x		;
-	ldd sp_ncol_list	; add sprite to non-collidable list
-	std SP_LINK,y		;
-	sty sp_ncol_list	;
-
-	ldy SP_LINK,x		; next sprite
-	beq 1f
-	jmp [SP_UPDATEP,y]
-1	rts
 
 
 SND_FX_TAB	fdb SND_TONE2,SND_TONE3,SND_TONE4,SND_TONE5
@@ -207,8 +175,9 @@ SND_FX_TAB	fdb SND_TONE2,SND_TONE3,SND_TONE4,SND_TONE5
 sp_update_sp4x12_next
 	sty sp_prev_ptr
 	ldy SP_LINK,y
-	beq 1b			; end of list - rts
+	beq 1f			; end of list - rts
 	jmp [SP_UPDATEP,y]
+1	rts
 
 sp_update_sp4x12
 	lda #12			; default sprite height
@@ -273,7 +242,7 @@ sp_update_sp4x12
 	ldd SP_YORD,y
 2
 	;ldd SP_YORD,y	; y offset
-	andb #$e0		; remove sub-pixel bits
+	andb #$e0	; remove sub-pixel bits
 	adda td_fbuf	; screen base
 	tfr d,x
 9	lda SP_XORD,y	; x offset
@@ -282,6 +251,53 @@ sp_update_sp4x12
 sp_clip_addr
 	jmp >0		; jump to horizontal clip routine
 
+sp_offscreen
+	ldu SP_DESC,y		; pointer to descriptor
+	jmp [SP_OFFSCR,u]	; off-screen handler
+
+
+;**********************************************************
+; Helper routines
+
+sp_update_explode_ref
+	dec sp_ref_count
+sp_update_explode
+	ldu SP_DESC,y		; point to additional sprite info
+	lda SP_SCORE,u
+	adda score0
+	daa
+	sta score0
+	lda score1
+	adca #0
+	daa
+	sta score1
+	lda score2
+	adca #0
+	daa
+	sta score2
+
+	clr SP_MISFLG,y		; stop missiles tracking this sprite
+	ldx SP_EXPL,u		; explosion sound effect
+	jsr snd_start_fx	;
+
+	; turn sprite into explosion
+	ldd #sp_expl_update_0
+	std SP_UPDATEP,y
+
+	ldx sp_prev_ptr		; remove sprite from current list
+	ldd SP_LINK,y		;
+	std SP_LINK,x		;
+	ldd sp_ncol_list	; add sprite to non-collidable list
+	std SP_LINK,y		;
+	sty sp_ncol_list	;
+
+	ldy SP_LINK,x		; next sprite
+	beq 1f
+	jmp [SP_UPDATEP,y]
+
+
+sp_remove_ref
+	dec sp_ref_count
 sp_remove
 	clr SP_MISFLG,y		; stop missiles tracking this sprite
 	dec sp_count		; reduce sprite count
@@ -294,29 +310,13 @@ sp_remove
 	ldy SP_LINK,u		; next sprite
 	beq 1f
 	jmp [SP_UPDATEP,y]
-	;lbne sp_update_sp4x12
 1	rts
 
-sp_offscreen
-	ldu SP_DESC,y		; pointer to descriptor
-	jmp [SP_OFFSCR,u]	; off-screen handler
-
-sp_form_offscreen
-	lda SP_XORD,y
-	cmpa #-6
-	blt sp_remove
-	cmpa #34
-	bge sp_remove
-	ldd SP_YORD,y
-	cmpd #-11*32-24*32
-	blt sp_remove
-	cmpd #(SCRN_HGT*32+24*32)
-	bge sp_remove
-	jmp sp_update_sp4x12_next
 
 
+;**********************************************************
 
-	; horizontal clip table. Thanks to Bosco for this idea!
+; horizontal clip table. Thanks to Bosco for this idea!
 
 	fdb sp_offscreen
 	fdb sp_offscreen

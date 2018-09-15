@@ -23,12 +23,13 @@ en_ps_sync_count rmb 1	; sync counter used to get all sprites in group
 EN_SPAWN_PERIOD equ 6
 
 ; formation spawn rate
-EN_FORM_PERIOD equ 8
+;EN_FORM_PERIOD equ 8
 
 en_init_all
 	lda #EN_SPAWN_PERIOD
 	sta en_spawn_rate
-	lda #EN_FORM_PERIOD
+	;lda #EN_FORM_PERIOD
+	lda #1
 	sta en_spawn_count
 	ldd #en_svec_std
 	std en_spawn_vec
@@ -36,40 +37,68 @@ en_init_all
 	;lda #3
 	;sta en_std_max
 en_svec_nop
-	rts
+9	rts
 
 
 en_spawn
 	jmp [en_spawn_vec]
 
-
-en_svec_std
-	lda en_spawn_count	; time to spawn formation yet?
-	bne 1f			; spawn standard enemies
-
-; spawn enemy formation
-	lda sp_count		; enough free sprites to spawn formation?
-	cmpa #CFG_NUM_SPRITES-4	;
-	bhi 9f			; not enough - rts
-	lda #EN_FORM_PERIOD
-	sta en_spawn_count
-	lda #4
-	sta en_form_count
-	jmp sp_form_spawn
-
-; spawn two standard enemies
-1	dec en_spawn_rate
-	bne 9f			; rts
+; spawn enemies
+en_svec_main
+	dec en_spawn_rate
+	bne 9b
 	lda #EN_SPAWN_PERIOD
 	sta en_spawn_rate
-	lda en_std_max
-	suba #2
-	cmpa sp_count
-	blo 9f			; rts
-	dec en_spawn_count
+
+	inc en_spawn_count
+	lda en_spawn_count
+	bita #7
+	beq 2f		; formation
+	bita #3
+	beq 1f		; rotating enemy
+	ldd #en_svec_std
+	bra 5f
+1	ldd #en_svec_rot
+	bra 5f
+2	ldd #en_svec_form
+5	std en_spawn_vec
+	rts
+	
+
+; waiting to spawn standard enemies
+en_svec_std
+	lda en_std_max		; check number of enemies
+	suba #2			; already on screen
+	cmpa sp_count		;
+	blo 9b			; rts
+	ldd #en_svec_main
+	std en_spawn_vec
 	jmp sp_std_spawn
 
+; waiting to spawn rotating enemies
+en_svec_rot
+	lda sp_count		; enough free sprites?
+	cmpa #CFG_NUM_SPRITES-2	;
+	bhi 9b			; not enough - rts
+	ldd #en_svec_main
+	std en_spawn_vec
+	lda sp_ref_count	; preshift buffer free?
+	lbne sp_std_spawn	; no - spawn standard enemy instead
+	jmp sp_rot_spawn
 
+; waiting to spawn formation
+en_svec_form
+	lda sp_count		; enough free sprites?
+	cmpa #CFG_NUM_SPRITES-4	;
+	bhi 9b			; not enough - rts
+	ldd #en_svec_main
+	std en_spawn_vec
+	lda sp_ref_count	; preshift buffer free?
+	lbne sp_std_spawn	; no - spawn standard enemy instead
+	jmp sp_form_spawn
+
+
+; initial delay before boss starts firing
 en_svec_boss
 	lda sp_count
 	bne 9f			; rts
@@ -108,6 +137,7 @@ en_svec_warp
 ; optional data in y
 ; returns new sprite in u
 ; assumes free sprite is available
+
 en_new_col_sprite
 	ldu sp_free_list	; get next free sprite
 	ldd SP_LINK,u		; remove sprite from free list

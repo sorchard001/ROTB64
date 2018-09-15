@@ -16,7 +16,6 @@ SP_YVEL		rmb 2	; y velocity * 32
 
 SP_FRAMEP	rmb 2	; pointer to current frame
 SP_MISFLG	rmb 1	; missile flag: 0 = not-trackable, -ve = trackable, +ve = tracking
-SP_COLFLG	rmb 1
 SP_UPDATEP	rmb 2	; pointer to update code
 SP_DESC		rmb 2	; pointer to additional (constant) info
 SP_DATA		rmb 1	; type dependent data
@@ -35,8 +34,8 @@ SP_SIZE		equ *	; size of data structure
 SP_OFFSCR	rmb 2	; pointer to offscreen handler
 SP_EXPL		rmb 2	; pointer to explosion sound effect
 SP_SCORE	rmb 1	; score
-SP_DPTR		rmb 2	; pointer to code to run on death
-SP_MISCODE	rmb 2	; pointer to code to run on missile hit
+SP_BHIT		rmb 2	; routine to run on bullet hit
+SP_MHIT		rmb 2	; routine to run on missile hit
 
 SP_DESC_SIZE	equ *	; size of data structure
 
@@ -71,12 +70,13 @@ sp_std_desc
 1	fdb sp_remove		; offscreen handler
 	fdb SND_EXPL_S		; explosion sound
 	fcb 1			; score 10
-	fdb sp_std_hit		; on destroy
-	fdb sp_rts		; missile hit n/a
+	fdb sp_std_bhit		; on bullet hit
+	fdb 0			; on missile hit n/a
 	assert (*-1b) == SP_DESC_SIZE, "sp_std_desc wrong_size"
 
+
 	; on hit check if player has destroyed enough enemies
-sp_std_hit
+sp_std_bhit
 	inc en_count
 	lda en_count
 	cmpa #50
@@ -87,7 +87,7 @@ sp_std_hit
 	stx en_spawn_vec
 	ldx #SND_ALERT2
 	jsr snd_start_fx_force
-1	jmp sp_dptr_rtn		; return to caller
+1	jmp sp_update_explode
 
 
 sp_warp
@@ -124,8 +124,6 @@ sp_std_update_0
 	clrb
 	std SP_XVEL,y
 	std SP_YVEL,y
-	dec SP_MISFLG,y		; missile target
-	clr SP_COLFLG,y		;
 	lda #16			; number of updates spent chasing player
 	sta SP_DATA2,y		;
 	lda #1			; 1st update next frame
@@ -142,6 +140,7 @@ sp_std_update_0
 dx	equ temp0
 dy	equ temp1
 sp_dir	equ temp2
+
 
 sp_std_update_1
 	dec SP_DATA3,y
@@ -229,12 +228,17 @@ sp_form_desc
 1	fdb sp_form_offscreen	; offscreen handler
 	fdb SND_EXPL_F		; explosion sound
 	fcb 2			; score 20
-	fdb sp_form_hit		; on destroy
-	fdb sp_rts		; missile hit n/a
+	fdb sp_form_bhit	; on bullet hit
+	fdb 0			; on missile hit n/a
 	assert (*-1b) == SP_DESC_SIZE, "sp_form_desc wrong size"
 
 
 sp_form_spawn
+	lda sp_ref_count
+	adda #4
+	sta sp_ref_count
+	lda #4
+	sta en_form_count
 	lda #-8
 	sta en_spawn_param
 	ldd #sp_form_ps_params
@@ -255,7 +259,7 @@ sp_form_update_0
 	ldx #form_coords
 	abx
 	lsrb
-	ldu #sp_std_vel_table
+	ldu #sp_form_vel_table
 	leau b,u
 	ldb en_spawn_param
 	leax b,x
@@ -272,7 +276,6 @@ sp_form_update_0
 	ldd 2,u
 	std SP_YVEL,y
 	;clr SP_MISFLG,y
-	clr SP_COLFLG,y
 	ldd #sp_form_desc
 	std SP_DESC,y
 	ldd #sp_form_grfx_ps
@@ -285,7 +288,7 @@ sp_form_update_0
 sp_form_ps_params
 	fcb 3			; number of sprites to preshift
 	fdb sp_form_grfx_ps	; destination
-	fdb sp_flap_2		; source
+	fdb sp_form_grfx	; source
 	fcb 4			; frame sync count
 
 
@@ -298,17 +301,16 @@ sp_form_update_1
 2	std SP_FRAMEP,y
 	jmp sp_update_sp4x12
 	
-	; on hit check if player has destroyed whole formation
-sp_form_hit
+
+; on hit check if player has destroyed whole formation
+sp_form_bhit
 	dec en_form_count
 	bne 1f
-
 	ldx #bonus_form
 	stx bonus_ptr
 	lda #8
 	sta bonus_tmr
-
-1	jmp sp_dptr_rtn			; return to caller
+1	jmp sp_update_explode_ref
 
 
 bonus_form
@@ -330,6 +332,21 @@ bonus_form
 	jmp snd_start_fx
 
 
+sp_form_offscreen
+	lda SP_XORD,y
+	cmpa #-6
+	blt 1f
+	cmpa #34
+	bge 1f
+	ldd SP_YORD,y
+	cmpd #-11*32-24*32
+	blt 1f
+	cmpd #(SCRN_HGT*32+24*32)
+	bge 1f
+	jmp sp_update_sp4x12_next
+1	jmp sp_remove_ref
+
+
 ; formation enemy velocity table
 sp_form_vel_table
 	mac_velocity_table_180 1.1
@@ -341,8 +358,8 @@ sp_expl_desc
 1	fdb sp_remove		; offscreen handler
 	fdb 0			; explosion sound n/a
 	fcb 0			; score n/a
-	fdb sp_dptr_rtn		; destruction code n/a
-	fdb sp_rts		; missile hit n/a
+	fdb 0			; on bullet hit n/a
+	fdb 0			; on missile hit n/a
 	assert (*-1b) == SP_DESC_SIZE, "sp_expl_desc wrong size"
 
 sp_plyr_expl_update_0
@@ -355,11 +372,12 @@ sp_expl_update_0
 	std SP_DESC,y
 	ldd #sp_expl_update_1
 	std SP_UPDATEP,y
-	jmp sp_update_sp4x12_next
+	;jmp sp_update_sp4x12_next
+	bra 1f
 
 sp_expl_update_1
 	ldu SP_DATA,y
-	ldd ,u++
+1	ldd ,u++
 	lbeq sp_remove
 	stu SP_DATA,y
 	std SP_FRAMEP,y
@@ -381,8 +399,8 @@ sp_boss_desc
 1	fdb sp_boss_offscreen	; offscreen handler
 	fdb SND_EXPL2		; explosion sound
 	fcb 0			; score n/a
-	fdb sp_dptr_rtn		; destruction code n/a
-	fdb sp_boss_on_missile	; missile hit code
+	fdb 0			; on bullet hit n/a
+	fdb sp_boss_mhit	; on missile hit
 	assert (*-1b) == SP_DESC_SIZE, "sp_boss_desc wrong size"
 
 sp_boss_ps_params
@@ -539,7 +557,6 @@ sp_boss_update_0b
 	clrb			;
 	std SP_XVEL,y		;
 	std SP_YVEL,y		;
-	sta SP_COLFLG,y		; init collision flag
 	ldd #sp_boss_desc
 	std SP_DESC,y
 	ldu en_spawn_param
@@ -678,16 +695,19 @@ sp_boss_update_1
 
 
 ; code to run when missile hits boss
-sp_boss_on_missile
+sp_boss_mhit
 	inc boss_hit
-	clr SP_MISFLG,u
+	clr SP_MISFLG,y
 	ldd #en_svec_warp
 	std en_spawn_vec
-	;ldx #SND_EXPL2
-	ldx SP_EXPL,x
+	ldu SP_DESC,y
+	ldx SP_EXPL,u
 	jsr snd_start_fx
-	ldx boss_sprite
-	jmp boss_explosion
+	ldx #sp_boss_update_1
+	stx SP_UPDATEP,y
+	jmp ,x
+	;ldx boss_sprite
+	;jmp boss_explosion
 
 
 ; boss velocity table
