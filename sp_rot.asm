@@ -20,7 +20,7 @@ sp_rot_desc
 	assert (*-1b) == SP_DESC_SIZE, "sp_rot_desc wrong_size"
 
 sp_rot_ps_params
-	fcb 2			; number of sprites to preshift
+	fcb 3			; number of sprites to preshift
 	fdb sp_rot_grfx_ps	; destination
 	fdb sp_rot_grfx		; source
 	fcb 0			; frame sync count
@@ -78,7 +78,7 @@ sp_rot_update_0
 sp_rot_update_1
 	ldd SP_FRAMEP,y
 	addd #384
-	cmpd #sp_rot_grfx_ps+2*384
+	cmpd #sp_rot_grfx_ps+3*384
 	blo 1f
 	ldd #sp_rot_grfx_ps
 1	std SP_FRAMEP,y
