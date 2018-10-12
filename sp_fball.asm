@@ -23,11 +23,10 @@ sp_fball_ps_params
 	fcb 2			; number of sprites to preshift
 	fdb sp_fball_grfx_ps	; destination
 	fdb sp_fball_grfx	; source
-	fcb 0			; frame sync count
 
 
 sp_fball_spawn
-	ldd #sp_fball_ps_params
+	ldu #sp_fball_ps_params
 	jsr en_update_ps_setup
 	ldy #sp_fball_update_0	; address of initialiser
 	jmp en_new_aux_sprite 

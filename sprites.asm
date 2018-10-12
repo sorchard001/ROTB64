@@ -37,9 +37,12 @@ sp_spare	rmb SP_SIZE * 2
 
 sp_fball_grfx_ps
 sp_std_grfx_ps		rmb 96*4*2
+
 sp_expl_grfx_ps		rmb 96*4*4
+
 sp_rot_grfx_ps
 sp_form_grfx_ps
+sp_bonus_grfx_ps
 sp_boss_grfx_ps		rmb 96*4*4
 
 ;**********************************************************
@@ -169,8 +172,6 @@ _pb_col_data
 
 
 
-SND_FX_TAB	fdb SND_TONE2,SND_TONE3,SND_TONE4,SND_TONE5
-
 
 sp_update_sp4x12_next
 	sty sp_prev_ptr
@@ -262,6 +263,9 @@ sp_offscreen
 sp_update_explode_ref
 	dec sp_ref_count
 sp_update_explode
+	ldx #sp_expl_update_0	; set up for explosion
+sp_update_explode_custom
+	stx SP_UPDATEP,y
 	ldu SP_DESC,y		; point to additional sprite info
 	lda SP_SCORE,u
 	adda score0
@@ -279,10 +283,6 @@ sp_update_explode
 	clr SP_MISFLG,y		; stop missiles tracking this sprite
 	ldx SP_EXPL,u		; explosion sound effect
 	jsr snd_start_fx	;
-
-	; turn sprite into explosion
-	ldd #sp_expl_update_0
-	std SP_UPDATEP,y
 
 	ldx sp_prev_ptr		; remove sprite from current list
 	ldd SP_LINK,y		;
@@ -495,7 +495,6 @@ sp_explosion_ps_params
 
 	section "DPVARS"
 
-sp4x12_ps_params	equ *
 sp4x12_ps_src		rmb 2
 sp4x12_ps_dst		rmb 2
 sp4x12_ps_frames	rmb 1
@@ -505,21 +504,27 @@ sp4x12_ps_count		rmb 1
 	section "CODE"
 
 sp_copy_3x12_to_4x12
-	bsr sp4x12_ps_first_imm
+	bsr sp4x12_ps_setup
 1	bsr sp4x12_ps_next
 	bne 1b
 	rts
 
 
-sp4x12_ps_first
-	ldu sp4x12_ps_params
-sp4x12_ps_first_imm
+sp4x12_ps_setup
 	pulu a,x
-	ldu ,u
 	sta sp4x12_ps_frames
-	bra 5f
+	leax -48,x
+	stx sp4x12_ps_dst
+	ldu ,u
+	leau -36,u
+	stu sp4x12_ps_src
+	clr sp4x12_ps_count
+	rts
+
 
 sp4x12_ps_next
+	lda sp4x12_ps_frames	; safety check
+	beq 9f			; exit if already done
 	ldx sp4x12_ps_dst
 	lda sp4x12_ps_count	; number of shifted frames remaining
 	bne 1f			; do next shifted frame
@@ -542,79 +547,83 @@ sp4x12_ps_next
 2	stx sp4x12_ps_dst
 	dec sp4x12_ps_count
 	bne 9f
+	;leax 48,x
+	;stx sp4x12_ps_dst
+	;leau 36,u		; setup next source frame
+	;stu sp4x12_ps_src	;
 	dec sp4x12_ps_frames
 9	rts
 
 
 ; copies 3x12 mask & image to 4 byte wide format
 ; u source, x destination
+; approx 800 cycles
 sp4x12_ps_copy0
 	lda #12
 	sta td_count
-1	ldd 36,u		; image data
-	std 48,x		;
-	lda 38,u		;
-	clrb			; set every 4th image byte to $00
-	std 50,x		;
-	pulu d			; mask data
-	std ,x++		;
-	pulu a			;
-	ldb #$ff		; set every 4th mask byte to $ff
-	std ,x++		;
-	dec td_count
-	bne 1b
+1	ldd 36,u	; 6 ; image data
+	std 48,x	; 6 ;
+	lda 38,u	; 5 ;
+	clrb		; 2 ; set every 4th image byte to $00
+	std 50,x	; 6 ;
+	pulu d		; 7 ; mask data
+	std ,x++	; 8 ;
+	pulu a		; 6 ;
+	ldb #$ff	; 2 ; set every 4th mask byte to $ff
+	std ,x++	; 8 ;
+	dec td_count	; 6 ;
+	bne 1b		; 3 ; (65)
 	rts
 
 ; copies and shifts 4x12 mask & image by one pixel
 ; mask & image are copy/shifted from -48,x to 48,x
 ; only 6 lines processed to keep cycles below 1000
+; approx 800 cycles
 sp4x12_ps_shift
 	lda #6
 	sta td_count
 
-1	coma		; set carry
-	ldd -48,x	; mask data
-	rora
-	rorb
-	asra
-	rorb
-	std 48,x
-	ldd -47,x
-	lsra
-	rorb
-	lsra
-	rorb
-	stb 50,x
-	ldd -46,x
-	lsra
-	rorb
-	lsra
-	rorb
-	stb 51,x
+1	coma		; 2 ; set carry
+	ldd -48,x	; 6 ; mask data
+	rora		; 2 ;
+	rorb		; 2 ;
+	asra		; 2 ;
+	rorb		; 2 ;
+	std 48,x	; 6 ;
+	ldd -47,x	; 6 ;
+	lsra		; 2 ;
+	rorb		; 2 ;
+	lsra		; 2 ;
+	rorb		; 2 ;
+	stb 50,x	; 5 ;
+	ldd -46,x	; 6 ;
+	lsra		; 2 ;
+	rorb		; 2 ;
+	lsra		; 2 ;
+	rorb		; 2 ;
+	stb 51,x	; 5 ;
 
-	ldd ,x		; image data
-	lsra
-	rorb
-	lsra
-	rorb
-	std 96,x
-	ldd 1,x
-	lsra
-	rorb
-	lsra
-	rorb
-	stb 98,x
-	ldd 2,x
-	lsra
-	rorb
-	lsra
-	rorb
-	stb 99,x
-
-	leax 4,x
-
-	dec td_count
-	bne 1b
+	ldd ,x		; 5 ; image data
+	lsra		; 2 ;
+	rorb		; 2 ;
+	lsra		; 2 ;
+	rorb		; 2 ;
+	std 96,x	; 6 ;
+	ldd 1,x		; 6 ;
+	lsra		; 2 ;
+	rorb		; 2 ;
+	lsra		; 2 ;
+	rorb		; 2 ;
+	stb 98,x	; 5 ;
+	ldd 2,x		; 6 ;
+	lsra		; 2 ;
+	rorb		; 2 ;
+	lsra		; 2 ;
+	rorb		; 2 ;
+	stb 99,x	; 5 ;
+	leax 4,x	; 5 ;
+	dec td_count	; 6 ;
+	bne 1b		; 3 ;
 
 	rts
 

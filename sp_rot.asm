@@ -23,14 +23,13 @@ sp_rot_ps_params
 	fcb 3			; number of sprites to preshift
 	fdb sp_rot_grfx_ps	; destination
 	fdb sp_rot_grfx		; source
-	fcb 0			; frame sync count
 
 sp_rot_spawn
 	inc sp_ref_count
 	inc sp_ref_count
 	lda #-8
 	sta en_spawn_param
-	ldd #sp_rot_ps_params
+	ldu #sp_rot_ps_params
 	jsr en_update_ps_setup
 	ldy #sp_rot_update_0
 	jsr en_new_col_sprite 

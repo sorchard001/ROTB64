@@ -12,10 +12,8 @@ en_spawn_count	rmb 1	; counts number of std enemies spawned vs formations
 en_form_count	rmb 1	; counts number of enemies remaining in formation
 en_count	rmb 1	; counts number of enemies destroyed
 en_spawn_param	rmb 2	; parameter for sprite initialisation
-en_update_ps_vec	rmb 2	; preshift sequence vector
-en_ps_sync_count rmb 1	; sync counter used to get all sprites in group
+en_ps_sync_flag rmb 1	; sync flag used to get all sprites in group
 			; to complete preshift sequence on same video frame
-
 
 	section "CODE"
 
@@ -179,53 +177,33 @@ en_new_aux_sprite
 
 ; Initialise preshift sequence
 ; Called from code that allocates sprites
-; D contains address of preshift params
+; U contains address of preshift params
 ; returns address of updater in X
 en_update_ps_setup
-	std sp4x12_ps_params	; preshift params
-	ldd #en_ps_vec0		; setup first routine in sequence
-	std en_update_ps_vec	;
-	ldx #en_update_ps	; return address of preshift updater
+	;lda #1
+	;sta en_ps_sync_flag
+	jsr sp4x12_ps_setup
+	ldx #en_update_ps	; address of preshift updater
 	rts
 
-; Called via sprite UPDATEP to perform next step in sequence
+; Called via sprite UPDATEP to perform next step in preshift sequence
+; Generates shifted frames until complete
+; 7 calls required to process each sprite mask/image pair
+; Finally waits for sync flag so that all sprites become active
+; on same video frame
+; (sync flag is updated at start of each game loop)
 en_update_ps
-	jsr [en_update_ps_vec]
-	jmp sp_update_sp4x12_next
+	jsr sp4x12_ps_next	; perform next unit of work
+	bne 9f			; not complete
+	lda en_ps_sync_flag	; check sync flag
+	bne 9f			; new game loop hasn't started yet
+	;ldx SP_DATA,y		; activate sprite
+	;stx SP_UPDATEP,y	;
+	;jmp ,x			;
+	jmp [SP_DATA,y]
+9	jmp sp_update_sp4x12_next
 
-; Preshift routines called via en_update_ps_vec
 
-; Copy first unshifted sprite frame
-; (Expanding from 3 to 4 byte wide format)
-en_ps_vec0
-	ldx sp4x12_ps_params	; get sync count
-	lda 5,x			;
-	sta en_ps_sync_count	;
-	ldd #en_ps_vec1
-	std en_update_ps_vec
-	jmp sp4x12_ps_first
-
-; Generate remaining shifted frames
-; 6 calls required to process the 3 frames
-en_ps_vec1
-	jsr sp4x12_ps_next
-	bne 9f
-	ldd #en_ps_vec2
-	std en_update_ps_vec
-	dec en_ps_sync_count	; sync count is used to ensure all sprites
-	bpl 9f			; in group exit preshift in same video frame
-	ldd SP_DATA,y
-	std SP_UPDATEP,y
-9	rts
-
-; Final routine sets up sprite initialiser and jumps to it
-en_ps_vec2
-	dec en_ps_sync_count
-	bpl 9b
-	ldx SP_DATA,y
-	stx SP_UPDATEP,y
-	leas 2,s
-	jmp ,x
 
 ;-----------------------------------------------------------
 

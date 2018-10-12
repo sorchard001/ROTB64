@@ -126,8 +126,6 @@ task_ptr		rmb 2
 rnd_ptr			rmb 2
 mode_routine	rmb 2
 death_tmr		rmb 1
-bonus_tmr		rmb 1
-bonus_ptr		rmb 2
 lives			rmb 1
 
  if DBG_RASTER
@@ -273,6 +271,7 @@ sp_player
 	include "sprite_desc.asm"
 	include "sp_rot.asm"
 	include "sp_fball.asm"
+	include "sp_bonus.asm"
 	include "sprites.asm"
 	include "sprites_3x8.asm"
 	include "pmissiles.asm"
@@ -353,13 +352,16 @@ START_DIR	equ 64
 	std mode_routine
 	ldd #task_table_normal
 	std task_ptr
-	clr bonus_tmr
 
 	jsr warp_intro
 
 ;-------------------------
 
 MLOOP
+	; update sprite preshift sync flag
+	; (so all sprites in group become active in same loop)
+	lda sp4x12_ps_frames
+	sta en_ps_sync_flag
 
 	; update sounds
 	jsr snd_update
@@ -373,15 +375,22 @@ MLOOP
 	beq 1f
 	lsla
 	lsla
-	sta td_count
-3	ldx #100				;
-2	leax -1,x				;
-	bne 2b					; 8 cycles per loop
+	sta temp0
+
+3	lda sp4x12_ps_frames	; check if any preshifting to be done
+	beq 5f			;
+	jsr sp4x12_ps_next	; approx 800 cycles
+	bra 30f
+	
+5	ldx #100		;
+2	leax -1,x		;
+	bne 2b			; 800 cycles
+
 30	lda [snd_buf_ptr]	;
-	sta $ff20			;
+	sta $ff20		;
 	inc snd_buf_ptr+1	;
-	dec td_count		;
-	bne 3b				;
+	dec temp0		;
+	bne 3b			;
 1
 
 	; copy background to frame buffer
@@ -439,14 +448,6 @@ MLOOP
 1
 	jsr rnd_number
 
-	; bonus
-	lda bonus_tmr
-	beq 1f
-	dec bonus_tmr
-	bne 1f
-	jsr [bonus_ptr]
-
-1
 	; housekeeping list
 	ldu task_ptr
 	ldx ,u++
@@ -492,14 +493,12 @@ fl_mode_normal
 	ldx #en_svec_boss
 	stx en_spawn_vec
 
-	; 6
+	; 4
 1	lda #1
-	bita keytable+6
+	bita keytable+4
 	bne 1f
-	ldy sp_free_list
-	beq 1f
-	jsr sp_fball_spawn
-
+	ldx #en_svec_form
+	stx en_spawn_vec
 
 1	rts
 

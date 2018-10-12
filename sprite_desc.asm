@@ -63,6 +63,18 @@ sp_calc_octant
 	addb #1*32	;
 1	rts
 
+
+; add A*1000 to score
+bonus_score
+	adda score1
+	daa
+	sta score1
+	lda score2
+	adca #0
+	daa
+	sta score2
+	rts
+
 ;----------------------------------------------------------
 ; standard enemy
 
@@ -241,7 +253,7 @@ sp_form_spawn
 	sta en_form_count
 	lda #-8
 	sta en_spawn_param
-	ldd #sp_form_ps_params
+	ldu #sp_form_ps_params
 	jsr en_update_ps_setup
 	ldy #sp_form_update_0	; address of initialiser
 	jsr en_new_col_sprite
@@ -289,7 +301,6 @@ sp_form_ps_params
 	fcb 3			; number of sprites to preshift
 	fdb sp_form_grfx_ps	; destination
 	fdb sp_form_grfx	; source
-	fcb 4			; frame sync count
 
 
 sp_form_update_1
@@ -305,31 +316,9 @@ sp_form_update_1
 ; on hit check if player has destroyed whole formation
 sp_form_bhit
 	dec en_form_count
-	bne 1f
-	ldx #bonus_form
-	stx bonus_ptr
-	lda #8
-	sta bonus_tmr
-1	jmp sp_update_explode_ref
-
-
-bonus_form
-	lda score1
-	adda #1
-	daa
-	sta score1
-	lda score2
-	adca #0
-	daa
-	sta score2
-
-	inc kill_count
-	lda kill_count
-	anda #3
-	lsla
-	ldx #SND_FX_TAB
-	ldx a,x
-	jmp snd_start_fx
+	lbne sp_update_explode_ref
+	ldx #sp_expl_bonus_update_0
+	jmp sp_update_explode_custom
 
 
 sp_form_offscreen
@@ -407,7 +396,6 @@ sp_boss_ps_params
 	fcb 4			; number of sprites to preshift
 	fdb sp_boss_grfx_ps	; destination
 	fdb sp_boss		; source
-	fcb 0			; frame sync count
 
 ; initialise boss just off edge of screen behind player
 ; boss is made up of four sprites flying in formation
@@ -425,7 +413,7 @@ sp_boss_spawn
 	ldd #sp_boss_init_params
 	std en_spawn_param
 
-	ldd #sp_boss_ps_params	; graphics preshift params
+	ldu #sp_boss_ps_params	; graphics preshift params
 	jsr en_update_ps_setup	; prepare for preshift
 	ldy #sp_boss_update_0b	; address of initialiser
 	jsr en_new_col_sprite
