@@ -12,7 +12,7 @@ sp_aux_list	rmb 2	; ptr to additional layer of sprites
 sp_prev_ptr	rmb 2	; points to previous sprite in current list
 sp_count	rmb 1	; number of active sprites
 sp_col_check	rmb 2	; pointer to collision check code (or bypass)
-sp_ref_count	rmb 1
+sp_ref_count	rmb 1	; number of sprites using common image buffer
 
 kill_count	rmb 1	; temporary for demo sound fx
 
@@ -42,6 +42,7 @@ sp_expl_grfx_ps		rmb 96*4*4
 
 sp_rot_grfx_ps
 sp_form_grfx_ps
+sp_jet_grfx_ps
 sp_bonus_grfx_ps
 sp_boss_grfx_ps		rmb 96*4*4
 
@@ -503,25 +504,27 @@ sp4x12_ps_count		rmb 1
 
 	section "CODE"
 
+; unpack graphics for one sprite
+; U points to params
 sp_copy_3x12_to_4x12
 	bsr sp4x12_ps_setup
 1	bsr sp4x12_ps_next
 	bne 1b
 	rts
 
-
+; setup for preshift
+; U points to params
 sp4x12_ps_setup
 	pulu a,x
 	sta sp4x12_ps_frames
-	leax -48,x
 	stx sp4x12_ps_dst
 	ldu ,u
-	leau -36,u
 	stu sp4x12_ps_src
 	clr sp4x12_ps_count
 	rts
 
-
+; perform next preshift stage
+; returns Z=1 when complete
 sp4x12_ps_next
 	lda sp4x12_ps_frames	; safety check
 	beq 9f			; exit if already done
@@ -529,10 +532,9 @@ sp4x12_ps_next
 	lda sp4x12_ps_count	; number of shifted frames remaining
 	bne 1f			; do next shifted frame
 
-	leax 48,x
 	ldu sp4x12_ps_src	;
-	leau 36,u		; setup next source frame
 5	bsr sp4x12_ps_copy0	; copy 3x12 source to 4x12 dest
+	leau 36,u		; setup next source frame
 	stu sp4x12_ps_src
 	stx sp4x12_ps_dst
 	lda #6			; setup 6 half images for copy/shift
@@ -543,14 +545,12 @@ sp4x12_ps_next
 	lda sp4x12_ps_count
 	lsra
 	bcc 2f
-	leax 48,x
+	leax 48,x		; fix for next shift stage
 2	stx sp4x12_ps_dst
 	dec sp4x12_ps_count
 	bne 9f
-	;leax 48,x
-	;stx sp4x12_ps_dst
-	;leau 36,u		; setup next source frame
-	;stu sp4x12_ps_src	;
+	leax 48,x		; fix for next animation frame
+	stx sp4x12_ps_dst
 	dec sp4x12_ps_frames
 9	rts
 
@@ -572,7 +572,7 @@ sp4x12_ps_copy0
 	ldb #$ff	; 2 ; set every 4th mask byte to $ff
 	std ,x++	; 8 ;
 	dec td_count	; 6 ;
-	bne 1b		; 3 ; (65)
+	bne 1b		; 3 ; (65 x 12 = 780)
 	rts
 
 ; copies and shifts 4x12 mask & image by one pixel
@@ -623,7 +623,7 @@ sp4x12_ps_shift
 	stb 99,x	; 5 ;
 	leax 4,x	; 5 ;
 	dec td_count	; 6 ;
-	bne 1b		; 3 ;
+	bne 1b		; 3 ; (133 x 6 = 798)
 
 	rts
 

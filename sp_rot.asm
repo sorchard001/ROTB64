@@ -16,7 +16,7 @@ sp_rot_desc
 	fdb SND_EXPL_S		; explosion sound
 	fcb 5			; score 50
 	fdb 0			; on bullet hit n/a
-	fdb sp_rot_bhit		; missile hit
+	fdb sp_rot_mhit		; missile hit
 	assert (*-1b) == SP_DESC_SIZE, "sp_rot_desc wrong_size"
 
 sp_rot_ps_params
@@ -37,6 +37,8 @@ sp_rot_spawn
 
 
 sp_rot_update_0
+	lda #2
+	sta en_form_count
 	ldb player_dir
 	stb SP_DATA,y		; direction
 	stb SP_DATA2,y
@@ -114,11 +116,17 @@ sp_rot_update_1
 	jmp sp_update_sp4x12
 
 
-sp_rot_bhit
+sp_rot_mhit
 	dec sp_ref_count
-	jmp sp_std_bhit
+	dec en_form_count
+	lbne sp_std_bhit
+	inc sp_ref_count
+	ldx #sp_expl_bonus_update_0
+	jmp sp_update_explode_custom
+	;jmp sp_std_bhit
 
 
 sp_rot_vel_table
-	mac_velocity_table_180 1.25
+	;mac_velocity_table_180 1.25
+	mac_velocity_table_180 0.75
 

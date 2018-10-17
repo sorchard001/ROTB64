@@ -95,6 +95,17 @@ en_svec_form
 	lbne sp_std_spawn	; no - spawn standard enemy instead
 	jmp sp_form_spawn
 
+; waiting to spawn jets
+en_svec_jets
+	lda sp_count		; enough free sprites?
+	cmpa #CFG_NUM_SPRITES-5	;
+	bhi 9b			; not enough - rts
+	ldd #en_svec_main
+	std en_spawn_vec
+	lda sp_ref_count	; preshift buffer free?
+	lbne sp_std_spawn	; no - spawn standard enemy instead
+	jmp sp_jet_spawn
+
 
 ; initial delay before boss starts firing
 en_svec_boss

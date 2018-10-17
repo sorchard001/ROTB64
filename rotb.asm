@@ -270,6 +270,7 @@ sp_player
 	include "player.asm"
 	include "sprite_desc.asm"
 	include "sp_rot.asm"
+	include "sp_jets.asm"
 	include "sp_fball.asm"
 	include "sp_bonus.asm"
 	include "sprites.asm"
@@ -431,12 +432,6 @@ MLOOP
 	bne 1f
 	jsr colour_change
 
-	; 4 - SPAWN FORMATION
-1	lda #1
-	bita keytable+4
-	bne 1f
-	clr en_spawn_count
-
 1
  if DBG_RASTER
 	lda #1
@@ -499,6 +494,14 @@ fl_mode_normal
 	bne 1f
 	ldx #en_svec_form
 	stx en_spawn_vec
+
+	; 5
+1	lda #1
+	bita keytable+5
+	bne 1f
+	ldx #en_svec_jets
+	stx en_spawn_vec
+
 
 1	rts
 
